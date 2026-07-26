@@ -1,0 +1,179 @@
+# PRD — rai-commit-badge 📊
+
+**Status:** Draft · **Date:** 2026-07-26 · **Owner:** Ashley Childress
+
+---
+
+## Problem
+
+[rai-lint](https://github.com/anchildress1/rai-lint) enforces AI attribution footers on every commit. Nothing reads them back.
+
+## Goal
+
+A GitHub Marketplace Action that scores a repo's footers and commits a shields.io badge.
+
+### Non-goals
+
+| Not doing | Why |
+|---|---|
+| Enforcement | rai-lint gates at commit time |
+| Hosted `?repo=org/name` service | Line stats need a clone |
+| Incremental scoring / cached state | Full recompute is ~1s |
+| npm package or CLI | Nobody asked |
+| Semantic AI-detection | Scores what the author declared |
+| Python twin | Runs in CI |
+
+---
+
+## Scoring
+
+| Footer | Weight |
+|---|---|
+| `Authored-by` | 0.00 |
+| `Commit-generated-by` | 0.05 |
+| `Assisted-by` | 0.25 |
+| `Co-authored-by` | 0.50 |
+| `Generated-by` | 0.90 |
+
+```
+aiPercent       = Σ(weight × churn) / Σ(churn)
+coveragePercent = attributedChurn / totalChurn
+```
+
+Ceiling is 0.90.
+
+`Co-authored-by` scores 0.50 when the identity matches a known AI tool, otherwise 0.
+
+**Churn** = lines added + deleted, from `--numstat`.
+
+- Excludes `linguist-generated` / `linguist-vendored` paths per `.gitattributes`
+- Binary files (`-\t-`) contribute 0
+- Walks every non-merge commit reachable from HEAD
+
+### Window
+
+Scoring starts at the earliest RAI footer. Everything before is excluded.
+
+- Unattributed commits inside the window score 0 and stay in the denominator
+- `since` input overrides auto-detection
+- Zero footers and zero `since` → badge reads `no attribution` in grey
+
+---
+
+## Merge strategies
+
+| Strategy | Attribution |
+|---|---|
+| Merge commit | Per-commit, intact |
+| Rebase | Per-commit, intact |
+| Squash | Collapsed |
+
+Squash concatenates every commit message, so one commit can carry several footer blocks against one churn number.
+
+**Group-aware resolution.** Split the message on blank lines; each paragraph containing a RAI footer is a group.
+
+- Within a group → **max** weight
+- Across groups → **mean** of group weights
+- A group whose only RAI-keyed line is a non-AI `Co-authored-by` is **discarded**
+- `Authored-by` counts as a group, at 0.00
+
+README must warn against squash merging.
+
+### Known gaps
+
+- Conflict-resolution edits living only in a merge commit are invisible
+- Rebase and cherry-pick can double-count churn
+
+---
+
+## Outputs
+
+The action writes one thing: badge markdown between markers in the consumer's README.
+
+```markdown
+<!--START_SECTION:rai-badge-->
+![AI attribution](https://img.shields.io/badge/AI%20attribution-42%25%20since%202026--03-C03070?style=flat)
+<!--END_SECTION:rai-badge-->
+```
+
+The score is encoded in the URL, so a score change is a URL change. GitHub's camo proxy treats it as a new image and fetches it fresh — which is what keeps the badge current, since camo caches opaquely and holds the badge stale longer than any `cacheSeconds` setting can fix.
+
+Shields static-badge escaping applies: `-` → `--`, `_` → `__`, space → `%20`, `%` → `%25`. The window date's hyphen doubles.
+
+Every other computed value lives in the job summary, where a human reads it.
+
+Three colors, on the bands the RAI scale already uses:
+
+| Score | Color | |
+|---|---|---|
+| 0–33% | `#0875AE` blue | human-led |
+| 34–66% | `#7C3AED` violet | shared |
+| 67–100% | `#C03070` magenta | AI-led |
+| `no attribution` | `#9F9F9F` grey | |
+
+All three clear 4.5:1 against the white text shields forces.
+
+Setup is one paste, into any file the `readme` input points at:
+
+```markdown
+<!--START_SECTION:rai-badge-->
+<!--END_SECTION:rai-badge-->
+```
+
+When the target file lacks markers, the action leaves it untouched and the job summary prints the snippet.
+
+### Job summary
+
+Written to `$GITHUB_STEP_SUMMARY` every run, computed in-memory: score, coverage, window start, granularity, and commit counts. Plus the marker snippet when the README lacks them.
+
+---
+
+## Action
+
+| Input | Default | Accepts |
+|---|---|---|
+| `since` | auto | `YYYY-MM-DD` window start |
+| `readme` | `README.md` | path to the file holding the markers |
+| `style` | `flat` | `flat`, `flat-square`, `plastic`, `for-the-badge`, `social` |
+
+`label` and the color bands stay fixed — they carry the meaning that makes one repo's badge comparable to another's.
+
+```yaml
+branding:
+  icon: edit-2
+  color: purple
+```
+
+- Hard-fail on shallow clones; requires `fetch-depth: 0`
+- Skip the commit when output is byte-identical
+- Its own commit carries RAI footers
+- Job-level `contents: write`
+
+### Marketplace
+
+- Single action, `action.yml` at repo root, public repo
+- Listing name: **RAI Commit Attribution Badge**
+- JavaScript action (`using: node24`); commit the ncc `dist/` bundle, with `check-dist` in CI
+
+### Cross-repo key parity
+
+CI fetches rai-lint's `rules.py` and asserts the footer key sets match.
+
+---
+
+## Phasing
+
+**Phase 1** — scoring, badge, Marketplace listing, squash warning.
+
+**Phase 2** — scope undefined. Agreed requirement: "assume human" needs to get smarter, starting with bot-authored commits.
+
+## Success criteria
+
+- Output matches a hand-computed score on rai-lint's own history
+- Badge renders on shields.io
+- A repo with zero footers badges `no attribution`
+- Pre-adoption history excluded; `since` overrides a stray footer
+- Squashed history flagged in the job summary
+- Badge markdown lands between the markers, and a score change changes the URL
+- A file lacking markers gets the snippet printed in the job summary
+- Each `style` value renders on shields
