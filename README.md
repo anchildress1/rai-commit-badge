@@ -12,9 +12,17 @@
 
 _A GitHub Action that scores [RAI attribution footers](https://github.com/anchildress1/rai-lint) and publishes a shields.io badge._
 
-### 📦 Status
+### 📊 Project Stats
 
-[![License: Polyform Shield 1.0.0](https://img.shields.io/badge/license-Polyform%20Shield%201.0.0-orange?style=for-the-badge)](LICENSE) [![Pre-release](https://img.shields.io/badge/status-pre--release-9F9F9F?style=for-the-badge)](docs/prd.md)
+[![GitHub Issues](https://img.shields.io/github/issues/anchildress1/rai-commit-badge?style=for-the-badge&color=34A853&cacheSeconds=3600)](https://github.com/anchildress1/rai-commit-badge/issues) [![Release](https://img.shields.io/github/v/release/anchildress1/rai-commit-badge?style=for-the-badge&color=0875AE)](https://github.com/anchildress1/rai-commit-badge/releases) [![License: Polyform Shield License 1.0.0](https://img.shields.io/badge/license-Polyform%20Shield%20License%201.0.0-orange?style=for-the-badge)](LICENSE)
+
+[![Sonar Tech Debt](https://img.shields.io/sonar/alert_status/anchildress1_rai-commit-badge?server=https%3A%2F%2Fsonarcloud.io&style=for-the-badge&logo=sonarqubecloud)](https://sonarcloud.io/summary/new_code?id=anchildress1_rai-commit-badge) [![Bugs](https://img.shields.io/sonar/bugs/anchildress1_rai-commit-badge?server=https%3A%2F%2Fsonarcloud.io&style=for-the-badge&logo=sonarqubecloud)](https://sonarcloud.io/summary/new_code?id=anchildress1_rai-commit-badge) [![Code Smells](https://img.shields.io/sonar/code_smells/anchildress1_rai-commit-badge?server=https%3A%2F%2Fsonarcloud.io&label=code_smells&style=for-the-badge&logo=sonarqubecloud)](https://sonarcloud.io/summary/new_code?id=anchildress1_rai-commit-badge) [![Coverage](https://img.shields.io/sonar/coverage/anchildress1_rai-commit-badge?server=https%3A%2F%2Fsonarcloud.io&style=for-the-badge&logo=sonarqubecloud)](https://sonarcloud.io/summary/new_code?id=anchildress1_rai-commit-badge)
+
+[![CI](https://img.shields.io/github/actions/workflow/status/anchildress1/rai-commit-badge/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=fff&label=tests)](https://github.com/anchildress1/rai-commit-badge/actions/workflows/ci.yml) [![check-dist](https://img.shields.io/github/actions/workflow/status/anchildress1/rai-commit-badge/check-dist.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=fff&label=dist)](https://github.com/anchildress1/rai-commit-badge/actions/workflows/check-dist.yml)
+
+### 📦 Marketplace
+
+[![Marketplace](https://img.shields.io/badge/marketplace-RAI%20Commit%20Attribution%20Badge-7C3AED?style=for-the-badge&logo=githubactions&logoColor=fff)](https://github.com/marketplace/actions/rai-commit-attribution-badge)
 
 <!-- prettier-ignore-start -->
 <!--START_SECTION:rai-badge-->
@@ -24,13 +32,19 @@ _A GitHub Action that scores [RAI attribution footers](https://github.com/anchil
 
 _That badge is this action, scoring itself._
 
-<!--
-Add once the infrastructure exists — each of these 404s until then:
-[![CI](https://img.shields.io/github/actions/workflow/status/anchildress1/rai-commit-badge/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=fff&label=ci)](https://github.com/anchildress1/rai-commit-badge/actions/workflows/ci.yml)
-[![check-dist](https://img.shields.io/github/actions/workflow/status/anchildress1/rai-commit-badge/check-dist.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=fff&label=dist)](https://github.com/anchildress1/rai-commit-badge/actions/workflows/check-dist.yml)
-[![Release](https://img.shields.io/github/v/release/anchildress1/rai-commit-badge?style=for-the-badge&color=0875AE)](https://github.com/anchildress1/rai-commit-badge/releases)
-[![Marketplace](https://img.shields.io/badge/marketplace-RAI%20Commit%20Attribution%20Badge-7C3AED?style=for-the-badge&logo=githubactions&logoColor=fff)](https://github.com/marketplace/actions/rai-commit-attribution-badge)
--->
+### 🗣️ Languages
+
+[![JavaScript Badge](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=000&style=for-the-badge)](https://developer.mozilla.org/en-US/docs/Web/JavaScript) [![Node.js Badge](https://img.shields.io/badge/Node.js-5FA04E?logo=nodedotjs&logoColor=fff&style=for-the-badge)](https://nodejs.org/)
+
+### 🤖 AI & Automation
+
+[![Claude Badge](https://img.shields.io/badge/Claude-D97757?logo=claude&logoColor=fff&style=for-the-badge)](https://claude.com/claude-code) ![GitHub Actions Badge](https://img.shields.io/badge/GitHub%20Actions-2088FF?logo=githubactions&logoColor=fff&style=for-the-badge)
+
+### 🔧 Quality & Standards
+
+[![Conventional Commits Badge](https://img.shields.io/badge/Conventional%20Commits-FE5196?logo=conventionalcommits&logoColor=fff&style=for-the-badge)](https://conventionalcommits.org/) [![commitlint Badge](https://img.shields.io/badge/commitlint-000?logo=commitlint&logoColor=fff&style=for-the-badge)](https://commitlint.js.org/) [![ESLint Badge](https://img.shields.io/badge/ESLint-4B32C3?logo=eslint&logoColor=fff&style=for-the-badge)](https://eslint.org/) ![Lefthook Badge](https://img.shields.io/badge/Lefthook-FF1E1E?logo=lefthook&logoColor=fff&style=for-the-badge)
+
+[![Vitest Badge](https://img.shields.io/badge/Vitest-6E9F18?logo=vitest&logoColor=fff&style=for-the-badge)](https://vitest.dev/) [![Prettier Badge](https://img.shields.io/badge/Prettier-F7B93E?logo=prettier&logoColor=000&style=for-the-badge)](https://prettier.io/) ![SonarQube Cloud Badge](https://img.shields.io/badge/SonarQube%20Cloud-126ED3?logo=sonarqubecloud&logoColor=fff&style=for-the-badge)
 
 ---
 
