@@ -48,90 +48,9 @@ _That badge is this action, scoring itself._
 
 ---
 
-[About](#about-) • [Score](#how-the-score-works-) • [Getting Started](#getting-started-) • [Configuration](#configuration-) • [Related](#related-)
+[Getting Started](#getting-started-) • [Configuration](#configuration-) • [About](#about-) • [Score](#how-the-score-works-) • [Related](#related-)
 
 </div>
-
----
-
-## About 🤖
-
-[RAI Lint](https://github.com/anchildress1/rai-lint) enforces AI attribution footers on every commit. Those footers encode an ordinal scale — from `Authored-by` (zero AI) to `Generated-by` (majority AI) — and then sit in your history doing nothing.
-
-`rai-commit-badge` walks that history, weights each commit by how many lines it actually changed, and publishes the result as a badge.
-
-**rai-lint gates, this measures.**
-
----
-
-## What squashing costs 🗜️
-
-Squash merging collapses a PR into one commit: several footers, one line count. With no way to split the churn, the scorer averages the footer weights instead.
-
-| Merge strategy | Attribution                      |
-| -------------- | -------------------------------- |
-| Merge commit   | Per-commit, exact                |
-| Rebase         | Per-commit, exact                |
-| Squash         | Averaged across the PR's footers |
-
-The average is size-blind — a one-line config tweak and a full feature count the same. Squashed commits are flagged in the job summary, so the share of your score that was averaged is always visible.
-
----
-
-## How the score works 🧮
-
-Each footer carries a weight derived from what it declares:
-
-| Footer                | Declares             | Weight |
-| --------------------- | -------------------- | ------ |
-| `Authored-by`         | Zero AI              | 0.00   |
-| `Commit-generated-by` | Trivial AI, no code  | 0.05   |
-| `Assisted-by`         | AI helped, human led | 0.25   |
-| `Co-authored-by`      | Roughly 50/50        | 0.50   |
-| `Generated-by`        | Majority AI          | 0.90   |
-
-Commits are weighted by lines changed. Lockfiles, dependency trees, build output, and minified assets are excluded.
-
-The ceiling is 0.90.
-
-### Scoring starts when you adopted
-
-The window opens at your **earliest RAI footer**, and the badge says so:
-
-```
-AI attribution | 42% since 2026-03
-```
-
-Inside the window, commits with no footer count as human, at weight 0.
-
-The colour tracks which footer dominates:
-
-| Score   |           |           |
-| ------- | --------- | --------- |
-| 0–33%   | `#0875AE` | human-led |
-| 34–66%  | `#7C3AED` | shared    |
-| 67–100% | `#C03070` | AI-led    |
-
-> [!NOTE]
-> `Co-authored-by` counts as AI only when the identity matches a known AI tool. Human co-authors score 0 — including the ones GitHub injects automatically when squashing.
-
----
-
-## Architecture 🏗️
-
-```mermaid
-flowchart LR
-    accTitle: How rai-commit-badge produces a badge
-    accDescr: Git history is scored, the score is encoded into a shields URL, and that URL is written between markers in the README.
-
-    H[Git history] --> S[Scorer]
-    S -->|weights by churn| P[Score and window]
-    P -->|encodes into URL| U[Shields badge URL]
-    U -->|writes between markers| R[README]
-    R --> B[Rendered badge]
-```
-
-A new score produces a new URL, so the image refreshes on its own.
 
 ---
 
@@ -199,6 +118,87 @@ The badge markdown, written between your markers:
 ```
 
 Granularity and commit counts go to the workflow job summary.
+
+---
+
+## About 🤖
+
+[RAI Lint](https://github.com/anchildress1/rai-lint) enforces AI attribution footers on every commit. Those footers encode an ordinal scale — from `Authored-by` (zero AI) to `Generated-by` (majority AI) — and then sit in your history doing nothing.
+
+`rai-commit-badge` walks that history, weights each commit by how many lines it actually changed, and publishes the result as a badge.
+
+**rai-lint gates, this measures.**
+
+---
+
+## How the score works 🧮
+
+Each footer carries a weight derived from what it declares:
+
+| Footer                | Declares             | Weight |
+| --------------------- | -------------------- | ------ |
+| `Authored-by`         | Zero AI              | 0.00   |
+| `Commit-generated-by` | Trivial AI, no code  | 0.05   |
+| `Assisted-by`         | AI helped, human led | 0.25   |
+| `Co-authored-by`      | Roughly 50/50        | 0.50   |
+| `Generated-by`        | Majority AI          | 0.90   |
+
+Commits are weighted by lines changed. Lockfiles, dependency trees, build output, and minified assets are excluded.
+
+The ceiling is 0.90.
+
+### Scoring starts when you adopted
+
+The window opens at your **earliest RAI footer**, and the badge says so:
+
+```
+AI attribution | 42% since 2026-03
+```
+
+Inside the window, commits with no footer count as human, at weight 0.
+
+The colour tracks which footer dominates:
+
+| Score   |           |           |
+| ------- | --------- | --------- |
+| 0–33%   | `#0875AE` | human-led |
+| 34–66%  | `#7C3AED` | shared    |
+| 67–100% | `#C03070` | AI-led    |
+
+> [!NOTE]
+> `Co-authored-by` counts as AI only when the identity matches a known AI tool. Human co-authors score 0 — including the ones GitHub injects automatically when squashing.
+
+---
+
+## What squashing costs 🗜️
+
+Squash merging collapses a PR into one commit: several footers, one line count. With no way to split the churn, the scorer averages the footer weights instead.
+
+| Merge strategy | Attribution                      |
+| -------------- | -------------------------------- |
+| Merge commit   | Per-commit, exact                |
+| Rebase         | Per-commit, exact                |
+| Squash         | Averaged across the PR's footers |
+
+The average is size-blind — a one-line config tweak and a full feature count the same. Squashed commits are flagged in the job summary, so the share of your score that was averaged is always visible.
+
+---
+
+## Architecture 🏗️
+
+```mermaid
+flowchart LR
+    accTitle: How rai-commit-badge produces a badge
+    accDescr: Git history is scored, the score is encoded into a shields URL, and that URL is written between markers in the README.
+
+    H[Git history] --> S[Scorer]
+    S -->|weights by churn| P[Score and window]
+    P -->|encodes into URL| U[Shields badge URL]
+    U -->|writes between markers| R[README]
+    R --> B[Rendered badge]
+```
+
+A new score produces a new URL, so the image refreshes on its own.
 
 ---
 
