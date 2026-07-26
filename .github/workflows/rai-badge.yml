@@ -7,10 +7,6 @@ name: RAI Attribution
 on:
   push:
     branches: [main]
-  schedule:
-    # Monday 06:00 UTC — the score is a lifetime measure and barely moves per commit
-    - cron: '0 6 * * 1'
-  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

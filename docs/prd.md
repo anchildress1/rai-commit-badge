@@ -165,15 +165,6 @@ branding:
 - Job-level `contents: write`
 - Colour band lookup uses the displayed integer, so the badge colour always matches the number printed on it
 
-### Triggers
-
-Document both. The score is a lifetime measure, so it moves slowly — a 50-line commit shifts a 150-commit repo by ~0.03 points.
-
-| Trigger                      | For                                                                  |
-| ---------------------------- | -------------------------------------------------------------------- |
-| `push` to the default branch | Immediate feedback; the byte-identical check makes most runs a no-op |
-| `schedule`, weekly           | The steady-state cost floor once the number stabilises               |
-
 ### Marketplace
 
 - Single action, `action.yml` at repo root, public repo
