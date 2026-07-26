@@ -1,4 +1,4 @@
-import { chmodSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { git } from '../src/git.js';
@@ -17,15 +17,6 @@ function clonePair() {
   run(['remote', 'add', 'origin', remote], local);
   run(['push', '-q', '-u', 'origin', 'main'], local);
   return { remote, local };
-}
-
-/** Second working copy of the same remote, used to race the first. */
-function secondClone(remote) {
-  const other = initRepo();
-  run(['remote', 'add', 'origin', remote], other);
-  run(['fetch', '-q', 'origin'], other);
-  run(['reset', '-q', '--hard', 'origin/main'], other);
-  return other;
 }
 
 describe('commitMessage', () => {
@@ -50,50 +41,24 @@ describe('commitAndPush', () => {
     const { remote, local } = clonePair();
     writeFileSync(join(local, 'README.md'), 'badged\n');
 
-    const result = commitAndPush({ cwd: local, readme: 'README.md', message: commitMessage(42, true) });
+    const branch = commitAndPush({ cwd: local, readme: 'README.md', message: commitMessage(42, true) });
 
-    expect(result).toEqual({ branch: 'main', rebased: false });
+    expect(branch).toBe('main');
     expect(git(['log', '-1', '--format=%s', 'main'], remote)).toBe('docs: update AI attribution badge to 42%');
     expect(git(['log', '-1', '--format=%an'], local)).toBe(COMMITTER_NAME);
     expect(git(['log', '-1', '--format=%ae'], local)).toBe(COMMITTER_EMAIL);
   });
 
-  it('rebases and retries when a concurrent run wins the race', () => {
+  it('surfaces a rejected push', () => {
     const { remote, local } = clonePair();
-    const other = secondClone(remote);
+    const other = initRepo();
+    run(['remote', 'add', 'origin', remote], other);
+    run(['fetch', '-q', 'origin'], other);
+    run(['reset', '-q', '--hard', 'origin/main'], other);
     commit(other, { message: `feat: racer\n\nAuthored-by: ${HUMAN}\n`, files: { 'other.txt': 'x\n' } });
     run(['push', '-q', 'origin', 'main'], other);
 
     writeFileSync(join(local, 'README.md'), 'badged\n');
-    const result = commitAndPush({ cwd: local, readme: 'README.md', message: commitMessage(42, true) });
-
-    expect(result).toEqual({ branch: 'main', rebased: true });
-    expect(git(['log', '--format=%s', 'main'], remote).split('\n')).toEqual([
-      'docs: update AI attribution badge to 42%',
-      'feat: racer',
-      'feat: base',
-    ]);
-  });
-
-  it('fails with a branch-protection hint when the push cannot land', () => {
-    const { remote, local } = clonePair();
-    const hook = join(remote, 'hooks', 'pre-receive');
-    writeFileSync(hook, '#!/bin/sh\necho "protected branch" >&2\nexit 1\n');
-    chmodSync(hook, 0o755);
-
-    writeFileSync(join(local, 'README.md'), 'badged\n');
-    expect(() => commitAndPush({ cwd: local, readme: 'README.md', message: commitMessage(42, true) })).toThrow(
-      /branch is protected/
-    );
-  });
-
-  it('refuses to publish from a detached HEAD', () => {
-    const { local } = clonePair();
-    run(['checkout', '-q', '--detach'], local);
-    writeFileSync(join(local, 'README.md'), 'badged\n');
-
-    expect(() => commitAndPush({ cwd: local, readme: 'README.md', message: commitMessage(42, true) })).toThrow(
-      /detached/
-    );
+    expect(() => commitAndPush({ cwd: local, readme: 'README.md', message: commitMessage(42, true) })).toThrow();
   });
 });

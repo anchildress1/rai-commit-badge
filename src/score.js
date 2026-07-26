@@ -4,12 +4,11 @@ import { resolveWeight } from './groups.js';
 /**
  * Score a repository's commits.
  *
- * The window opens at the earliest attributed commit's author date, or at
- * `since` when given. Unattributed commits inside the window score 0 and stay
- * in the denominator.
+ * The window opens at the earliest attributed commit, or at `since` when given.
+ * Unattributed commits inside the window score 0 and stay in the denominator.
  *
  * @param {Array<{sha: string, date: string, message: string, files: Array}>} commits
- * @param {{since?: string}} [options] `since` as `YYYY-MM-DD`, compared against author date
+ * @param {{since?: string}} [options] `since` as `YYYY-MM-DD`
  * @returns {{attributed: boolean, percent: number, displayed: number, windowStart: string | null,
  *   commits: number, windowCommits: number, attributedCommits: number, squashedCommits: number,
  *   churn: number, excludedChurn: number}}

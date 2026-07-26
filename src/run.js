@@ -64,12 +64,12 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd() 
     core.info('Badge is byte-identical — skipping the commit.');
   } else {
     writeFileSync(target, content);
-    const { branch, rebased } = commitAndPush({
+    const branch = commitAndPush({
       cwd,
       readme,
       message: commitMessage(result.displayed, result.attributed),
     });
-    commitState = rebased ? `committed to ${branch} after rebase` : `committed to ${branch}`;
+    commitState = `committed to ${branch}`;
   }
 
   await core.summary.addRaw(buildSummary({ result, badge, readme, replaced, commitState })).write();

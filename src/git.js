@@ -3,8 +3,6 @@ import { execFileSync } from 'node:child_process';
 const RECORD = '\x1e';
 const FIELD = '\x1f';
 
-// %ad is the author date. `git log --since` filters the committer date instead,
-// so the window is applied in-process to keep one date semantic throughout.
 const LOG_FORMAT = `${RECORD}%H${FIELD}%ad${FIELD}%B${FIELD}`;
 
 /**

@@ -30,46 +30,21 @@ export function commitMessage(displayed, attributed) {
 /**
  * Commit the badge change and push it to the current branch.
  *
- * A concurrent run makes the first push non-fast-forward; the rebase-and-retry
- * covers that. A rejection that survives the retry is branch protection, and the
- * action fails rather than pretending the badge shipped.
- *
  * @param {object} params
  * @param {string} params.cwd repository directory
  * @param {string} params.readme path to the rewritten file
  * @param {string} params.message the commit message
  * @param {(args: string[], cwd: string) => string} [params.run] git runner, injected for tests
- * @returns {{branch: string, rebased: boolean}}
- * @throws {Error} on a detached HEAD or a push that survives one rebase retry
+ * @returns {string} the branch the badge landed on
  */
 export function commitAndPush({ cwd, readme, message, run = git }) {
-  let branch;
-  try {
-    branch = run(['symbolic-ref', '--short', 'HEAD'], cwd);
-  } catch {
-    throw new Error('HEAD is detached — check out a branch before publishing the badge');
-  }
+  const branch = run(['symbolic-ref', '--short', 'HEAD'], cwd);
 
   run(['config', 'user.name', COMMITTER_NAME], cwd);
   run(['config', 'user.email', COMMITTER_EMAIL], cwd);
   run(['add', '--', readme], cwd);
   run(['commit', '-m', message], cwd);
+  run(['push', 'origin', `HEAD:${branch}`], cwd);
 
-  try {
-    run(['push', 'origin', `HEAD:${branch}`], cwd);
-    return { branch, rebased: false };
-  } catch (first) {
-    try {
-      run(['pull', '--rebase', 'origin', branch], cwd);
-      run(['push', 'origin', `HEAD:${branch}`], cwd);
-      return { branch, rebased: true };
-    } catch (second) {
-      throw new Error(
-        `Push to ${branch} was rejected. If the branch is protected, grant the workflow ` +
-          `an exception or run this action on an unprotected branch.\n${second.stderr ?? second.message}\n` +
-          `First attempt: ${first.stderr ?? first.message}`,
-        { cause: second }
-      );
-    }
-  }
+  return branch;
 }
