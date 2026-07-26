@@ -1,0 +1,24 @@
+name: RAI Commit Attribution Badge
+description: Scores RAI attribution footers across your git history and commits a shields.io badge to your README.
+author: Ashley Childress
+
+branding:
+  icon: edit-2
+  color: purple
+
+inputs:
+  since:
+    description: Window start as YYYY-MM-DD, compared against author date. Defaults to your earliest RAI footer.
+    required: false
+  readme:
+    description: Path to the file holding the badge markers.
+    required: false
+    default: README.md
+  style:
+    description: Shields badge style — flat, flat-square, plastic, for-the-badge, or social.
+    required: false
+    default: flat
+
+runs:
+  using: node24
+  main: dist/index.js
