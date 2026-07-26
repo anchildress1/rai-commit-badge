@@ -1,26 +1,89 @@
-// PLACEHOLDER — replace all three lists with the trailers observed in the wild.
-
 // Bots confirmed not to be AI authorship. Checked first and short-circuits, so a
 // handle here can never be rescued by a name or domain match.
 export const NON_AI_IDENTITIES = [
   'all-contributors-bot',
+  'codecov[bot]',
   'dependabot-preview[bot]',
   'dependabot[bot]',
   'depfu[bot]',
   'github-actions[bot]',
+  'imgbot[bot]',
+  'mergify[bot]',
+  'pre-commit-ci[bot]',
+  'release-please[bot]',
   'renovate[bot]',
+  'semantic-release-bot',
+  'snyk-bot',
+  'stale[bot]',
 ];
 
 // Tool names — the stronger signal. `copilot@github.com` and `noreply@google.com`
 // are AI trailers on domains thousands of humans also send from, so only the name
 // separates them.
-export const AI_NAMES = ['Claude'];
+//
+// Bare `Amp`, `Oz`, `Cody`, `Devin`, `Jules`, and `Continue` are deliberately
+// absent: each is a common word or human given name, and matching them would
+// score real people as tools. Their bot handles and vendor domains cover them.
+export const AI_NAMES = [
+  'aider',
+  'ampcode',
+  'anthropic-code-agent',
+  'Antigravity',
+  'Augment Agent',
+  'ChatGPT',
+  'Claude',
+  'Cline',
+  'CodeRabbit',
+  'Codeium',
+  'Codex',
+  'Copilot',
+  'Cursor',
+  'Devin AI',
+  'devin-ai-integration',
+  'factory-droid',
+  'Gemini',
+  'github-advanced-security',
+  'github-code-quality',
+  'google-labs-jules',
+  'GPT',
+  'Junie',
+  'Kilo Code',
+  'Kiro',
+  'Ona',
+  'opencode',
+  'OpenHands',
+  'oz-agent',
+  'Qodo',
+  'Roo Code',
+  'SWE-agent',
+  'Tabnine',
+  'Verdent',
+  'Windsurf',
+  'Zencoder',
+];
 
 // Vendor domains — the weaker signal, and the reason the list is short. Tools
 // invent a fresh address most runs: Verdent alone has signed from twelve domains
 // including `anthropic.com`, so a domain can name the wrong vendor and still be
 // AI. Only domains no human sends commit mail from belong here.
-export const AI_EMAIL_DOMAINS = ['anthropic.com'];
+export const AI_EMAIL_DOMAINS = [
+  'aider.chat',
+  'all-hands.dev',
+  'ampcode.com',
+  'anthropic.com',
+  'antigravity.ai',
+  'antigravity.dev',
+  'cursor.com',
+  'jules.com',
+  'kiro.ai',
+  'kiro.dev',
+  'ona.com',
+  'opencode.ai',
+  'verdent.ai',
+  // Warp signs as `Oz <oz-agent@warp.dev>` — the handle lives in the address, so
+  // the display name alone never identifies it
+  'warp.dev',
+];
 
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
