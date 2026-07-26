@@ -13,6 +13,7 @@ on:
       - 'package-lock.json'
       - '.github/workflows/check-dist.yml'
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - 'src/**'
       - '.churnignore'
@@ -34,16 +35,20 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
 
-      - uses: actions/setup-node@v7.0.0
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
         with:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
 
-      - run: npm run build
+      - name: Build action bundle
+        run: npm run build
 
       - name: Compare committed dist/ to a fresh build
         id: diff
@@ -55,7 +60,7 @@ jobs:
           fi
 
       - name: Upload the rebuilt bundle
-        if: failure() && steps.diff.outcome == 'failure'
+        if: always() && steps.diff.outcome == 'failure'
         uses: actions/upload-artifact@v7.0.1
         with:
           name: dist
