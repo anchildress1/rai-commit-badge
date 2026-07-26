@@ -22,8 +22,8 @@ export function score(commits, { since } = {}) {
   const attributedDates = scored.filter((c) => c.weight !== null).map((c) => c.date);
   // min rather than sort: one pass, no mutation of the mapped array, and no
   // reliance on the default comparator to order ISO dates
-  const earliest = attributedDates.reduce((min, date) => (date < min ? date : min), attributedDates[0]);
-  const windowStart = since ?? (attributedDates.length ? earliest : null);
+  const earliest = attributedDates.length ? attributedDates.reduce((min, date) => (date < min ? date : min)) : null;
+  const windowStart = since ?? earliest;
 
   if (windowStart === null) {
     return {
