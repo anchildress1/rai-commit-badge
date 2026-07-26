@@ -5,7 +5,8 @@ import { AI_ATTRIBUTION_KEYS } from '../src/keys.js';
 const SOURCE =
   'https://raw.githubusercontent.com/anchildress1/rai-lint/main/packages/python-gitlint/gitlint_rai/rules.py';
 
-const response = await fetch(SOURCE);
+// a stalled fetch would otherwise hang until the job timeout with no diagnosis
+const response = await fetch(SOURCE, { signal: AbortSignal.timeout(15_000) });
 if (!response.ok) {
   console.error(`Could not fetch ${SOURCE}: HTTP ${response.status}`);
   process.exit(1);
