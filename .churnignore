@@ -1,0 +1,30 @@
+# Machine-written files carry no attribution signal. Ships with the action;
+# consumers configure nothing. gitignore syntax, parsed with `ignore`.
+# Read as a bundled asset by src/churn.js.
+
+# Lockfiles
+package-lock.json
+npm-shrinkwrap.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+uv.lock
+poetry.lock
+Pipfile.lock
+Cargo.lock
+composer.lock
+Gemfile.lock
+go.sum
+
+# Dependency trees
+node_modules/
+vendor/
+
+# Build output
+dist/
+build/
+
+# Minified and generated assets
+*.min.js
+*.min.css
+*.map
