@@ -98,7 +98,6 @@ The average is size-blind. README documents the cost, without prescribing a merg
 
 - Conflict-resolution edits living only in a merge commit are invisible
 - Rebase and cherry-pick can double-count churn
-- A revert counts twice: the original churn and the churn that undoes it, each at its own footer's weight
 
 ---
 
@@ -184,20 +183,6 @@ Document both. The score is a lifetime measure, so it moves slowly — a 50-line
 ### Cross-repo key parity
 
 CI fetches rai-lint's `rules.py` and asserts the footer key sets match.
-
----
-
-## Decisions
-
-**Known-AI identity.** A `Co-authored-by` counts as AI when the email's domain, or any parent of it, is on the vendor domain list, or when the value contains a word-bounded tool name. The domain carries vendors that send their own mail; the name list carries the bots GitHub routes through `users.noreply.github.com`, where `Copilot Autofix powered by AI` and `dependabot[bot]` share a domain and only the name separates them. Both lists live in `src/ai-identities.js`.
-
-**Push race and branch protection.** A rejected push is retried once behind `git pull --rebase`, which covers a concurrent run landing first. A rejection that survives the retry fails the run and names branch protection in the message.
-
-**Markers.** Every marker pair outside a fenced code block is rewritten, so a file may carry more than one badge. Pairs inside a fence are left alone — a README's own setup instructions are a fenced pair. A `START` with no matching `END` is left as written, and the summary prints the snippet.
-
-**Window date.** The window compares against **author** date, both for auto-detection and for `since`. `git log --since` filters committer date instead, so the window is applied in-process to keep one date semantic across rebases and cherry-picks.
-
-**The action's own commit.** It carries `Commit-generated-by`, which weighs 0.05. A machine-written doc line that scored any higher would let the action inflate the number it publishes.
 
 ---
 
