@@ -46,9 +46,25 @@ Ceiling is 0.90.
 
 **Churn** = lines added + deleted, from `--numstat`.
 
-- Excludes `linguist-generated` / `linguist-vendored` paths per `.gitattributes`
 - Binary files (`-\t-`) contribute 0
 - Walks every non-merge commit reachable from HEAD
+
+Footer keys match **case-insensitively, anchored to line start** — mirroring rai-lint's `/i` and `re.IGNORECASE`. Anchoring is required: `Commit-generated-by` ends with `generated-by`, and an unanchored match scores it 0.90 instead of 0.05.
+
+### Exclusions
+
+Machine-written files carry no attribution signal and are excluded from churn. The list ships **with this action** in `src/churn-ignore`, gitignore syntax, parsed with [`ignore`](https://www.npmjs.com/package/ignore). Consumers configure nothing.
+
+| | |
+|---|---|
+| Lockfiles | `package-lock.json` `npm-shrinkwrap.json` `yarn.lock` `pnpm-lock.yaml` `bun.lockb` `uv.lock` `poetry.lock` `Pipfile.lock` `Cargo.lock` `composer.lock` `Gemfile.lock` `go.sum` |
+| Dependency trees | `node_modules/` `vendor/` |
+| Build output | `dist/` `build/` |
+| Minified | `*.min.js` `*.min.css` `*.map` |
+
+Exclusion is per line, not per commit — a commit that only touches excluded paths drops out of both sides of the ratio. Excluded churn is reported in the job summary.
+
+Measured across 24 repos, exclusions account for a **median 33% of churn**, ranging 0% to 97%.
 
 ### Window
 
@@ -148,6 +164,16 @@ branding:
 - Skip the commit when output is byte-identical
 - Its own commit carries RAI footers
 - Job-level `contents: write`
+- Colour band lookup uses the displayed integer, so the badge colour always matches the number printed on it
+
+### Triggers
+
+Document both. The score is a lifetime measure, so it moves slowly — a 50-line commit shifts a 150-commit repo by ~0.03 points.
+
+| Trigger | For |
+|---|---|
+| `push` to the default branch | Immediate feedback; the byte-identical check makes most runs a no-op |
+| `schedule`, weekly | The steady-state cost floor once the number stabilises |
 
 ### Marketplace
 

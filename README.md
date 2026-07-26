@@ -71,7 +71,7 @@ Each footer carries a weight derived from what it declares:
 | `Co-authored-by` | Roughly 50/50 | 0.50 |
 | `Generated-by` | Majority AI | 0.90 |
 
-Commits are weighted by lines changed. Generated and vendored paths are excluded via `.gitattributes`.
+Commits are weighted by lines changed. Lockfiles, dependency trees, build output, and minified assets are excluded.
 
 The ceiling is 0.90.
 
