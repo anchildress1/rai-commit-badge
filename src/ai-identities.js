@@ -1,45 +1,45 @@
-// Domains an AI vendor sends commit mail from. Matched on the email's domain or
-// any parent of it, so `bot.anthropic.com` resolves through `anthropic.com`.
-export const AI_EMAIL_DOMAINS = new Set([
-  'aider.chat',
-  'ampcode.com',
-  'anthropic.com',
-  'codeium.com',
-  'codium.ai',
-  'cognition.ai',
-  'cursor.com',
-  'cursor.sh',
-  'deepmind.com',
-  'openai.com',
-  'qodo.ai',
-  'sourcegraph.com',
-  'sourcery.ai',
-  'tabnine.com',
-  'verdent.ai',
-  'windsurf.com',
-]);
+// PLACEHOLDER — replace both lists with the trailers observed in the wild.
+// Domains match the identity's email; names match its display name.
+export const AI_EMAIL_DOMAINS = ['anthropic.com'];
+export const AI_NAMES = ['Claude'];
 
-// Tool names, matched word-bounded against the whole footer value. Carries the
-// bot identities GitHub routes through users.noreply.github.com, where the
-// domain says nothing — `Copilot Autofix powered by AI` and `dependabot[bot]`
-// share a domain and only the name separates them.
-export const AI_NAME_PATTERN =
-  /\b(?:aider|amp|chatgpt|claude|codeium|codex|copilot|cursor|devin|gemini|gpt-?\d|jules|qodo|sourcery|tabnine|verdent|windsurf)\b/i;
+const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Boundaries are alphanumeric rather than \b so a name carrying `[bot]`, a
+// hyphen, or a version number still matches on its own terms.
+const NAME_MATCHERS = AI_NAMES.map((name) => new RegExp(`(?<![a-z0-9])${escape(name)}(?![a-z0-9])`, 'i'));
 
 /**
- * Decide whether a `Co-authored-by` value names a known AI tool.
+ * Split a footer value into its display name and email domain.
  *
- * @param {string} value the footer value, e.g. `Claude Opus 5 <noreply@anthropic.com>`
+ * Trailers in the wild often carry no `<email>` — `Generated-by: Claude Opus
+ * 4.8` is as common as the addressed form.
+ *
+ * @param {string} value the footer value
+ * @returns {{name: string, domain: string}} display name and lowercased email domain
+ */
+export function parseIdentity(value) {
+  const addressed = /^(.*?)\s*<([^>]*)>\s*$/.exec(value);
+  const name = (addressed ? addressed[1] : value).trim();
+  const email = addressed ? addressed[2] : '';
+  const domain = email.includes('@') ? email.split('@').pop().toLowerCase() : '';
+  return { name, domain };
+}
+
+/**
+ * Decide whether a footer value names a known AI tool.
+ *
+ * @param {string} value the footer value, with or without an `<email>`
  * @returns {boolean} true when the identity is a known AI tool
  */
 export function isKnownAiIdentity(value) {
-  const email = /<([^>]+)>/.exec(value)?.[1] ?? '';
-  const domain = email.split('@').pop()?.toLowerCase() ?? '';
-  if (domain) {
-    const labels = domain.split('.');
-    for (let i = 0; i < labels.length - 1; i += 1) {
-      if (AI_EMAIL_DOMAINS.has(labels.slice(i).join('.'))) return true;
-    }
+  const { name, domain } = parseIdentity(value);
+
+  // a parent domain counts, so `bot.example.com` resolves through `example.com`
+  const labels = domain.split('.');
+  for (let i = 0; i < labels.length - 1; i += 1) {
+    if (AI_EMAIL_DOMAINS.includes(labels.slice(i).join('.'))) return true;
   }
-  return AI_NAME_PATTERN.test(value);
+
+  return NAME_MATCHERS.some((matcher) => matcher.test(name));
 }
