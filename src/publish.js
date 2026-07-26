@@ -43,7 +43,7 @@ export function commitAndPush({ cwd, readme, message, run = git }) {
   run(['config', 'user.name', COMMITTER_NAME], cwd);
   run(['config', 'user.email', COMMITTER_EMAIL], cwd);
   run(['add', '--', readme], cwd);
-  run(['commit', '-m', message], cwd);
+  run(['commit', '--only', '-m', message, '--', readme], cwd);
   run(['push', 'origin', `HEAD:${branch}`], cwd);
 
   return branch;

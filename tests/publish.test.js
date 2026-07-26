@@ -49,6 +49,18 @@ describe('commitAndPush', () => {
     expect(git(['log', '-1', '--format=%ae'], local)).toBe(COMMITTER_EMAIL);
   });
 
+  it('leaves unrelated staged changes out of the badge commit', () => {
+    const { remote, local } = clonePair();
+    writeFileSync(join(local, 'unrelated.txt'), 'staged\n');
+    run(['add', 'unrelated.txt'], local);
+    writeFileSync(join(local, 'README.md'), 'badged\n');
+
+    commitAndPush({ cwd: local, readme: 'README.md', message: commitMessage(42, true) });
+
+    expect(git(['show', '--name-only', '--format=', 'HEAD'], remote)).toBe('README.md');
+    expect(git(['diff', '--cached', '--name-only'], local)).toBe('unrelated.txt');
+  });
+
   it('surfaces a rejected push', () => {
     const { remote, local } = clonePair();
     const other = initRepo();
