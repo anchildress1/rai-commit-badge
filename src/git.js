@@ -38,7 +38,8 @@ export function isShallow(cwd) {
  * @returns {string} the path after the rename
  */
 export function resolveRenamePath(path) {
-  const braced = /^(.*)\{(.*) => (.*)\}(.*)$/.exec(path);
+  // classes exclude the braces they sit between; `(.*)` runs would backtrack
+  const braced = /^([^{]*)\{([^{}]*) => ([^{}]*)\}(.*)$/.exec(path);
   if (braced) return `${braced[1]}${braced[3]}${braced[4]}`.replace(/\/{2,}/g, '/');
   const arrow = /^(.*) => (.*)$/.exec(path);
   return arrow ? arrow[2] : path;

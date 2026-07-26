@@ -101,8 +101,20 @@ const CLAUDE_PREFIX = /^Claude(?=[^a-z0-9]|$)/i;
 // `Claude` reads as a person. Tracks the family names, not the versions.
 const CLAUDE_TOOL_MATCHERS = ['Code', 'Fable', 'Haiku', 'Opus', 'Sonnet'].map(matcher);
 
-const ADDRESS = /<([^>]*)>/;
+// anchored, and `<` excluded from the class: unanchored `<([^>]*)>` retries at
+// every `<` in a value that never closes, which is quadratic on commit text
+const ADDRESS = /<([^<>]*)>[ \t]*$/;
 const EMAIL = /^[^\s@]+@[^\s@]+$/;
+
+/**
+ * @param {string} text an address-slot value
+ * @returns {string} the value without trailing backslashes
+ */
+function trimTrailingBackslashes(text) {
+  let end = text.length;
+  while (end > 0 && text[end - 1] === '\\') end -= 1;
+  return text.slice(0, end);
+}
 
 /**
  * Test a string for any of `terms`, on alphanumeric boundaries.
@@ -130,8 +142,9 @@ export function parseIdentity(value) {
   const raw = value.trim();
   const found = ADDRESS.exec(raw);
 
-  // a trailing backslash turns up where a URL was pasted into the address slot
-  const address = found ? found[1].trim().replace(/\\+$/, '') : '';
+  // a trailing backslash turns up where a URL was pasted into the address slot.
+  // trimmed by hand — `/\\+$/` backtracks quadratically on a run of backslashes
+  const address = found ? trimTrailingBackslashes(found[1].trim()) : '';
   const domain = EMAIL.test(address) ? address.split('@').pop().toLowerCase() : '';
   const name = found ? raw.slice(0, found.index).trim() : raw;
 
