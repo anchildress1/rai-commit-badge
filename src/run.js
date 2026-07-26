@@ -10,6 +10,20 @@ import { buildSummary } from './summary.js';
 const SINCE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
+ * Test that a `YYYY-MM-DD` string names a day that exists.
+ *
+ * The shape check alone admits `2026-02-30`, which then compares lexicographically
+ * against commit dates and silently scores the wrong window.
+ *
+ * @param {string} value a shape-valid date string
+ * @returns {boolean} true when the date round-trips unchanged
+ */
+function isRealDate(value) {
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(value);
+}
+
+/**
  * Read and validate the action's inputs.
  *
  * @returns {{since: string | undefined, readme: string, style: string}}
@@ -22,8 +36,8 @@ export function readInputs() {
   }
 
   const since = core.getInput('since').trim();
-  if (since && !SINCE_PATTERN.test(since)) {
-    throw new Error(`Invalid since "${since}". Expected YYYY-MM-DD.`);
+  if (since && !(SINCE_PATTERN.test(since) && isRealDate(since))) {
+    throw new Error(`Invalid since "${since}". Expected a real calendar date as YYYY-MM-DD.`);
   }
 
   return { since: since || undefined, readme: core.getInput('readme') || 'README.md', style };

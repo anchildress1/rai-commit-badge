@@ -67,7 +67,17 @@ describe('readInputs', () => {
 
   it('rejects a malformed since', () => {
     process.env.INPUT_SINCE = 'March 2026';
-    expect(() => readInputs()).toThrow(/Expected YYYY-MM-DD/);
+    expect(() => readInputs()).toThrow(/YYYY-MM-DD/);
+  });
+
+  it.each(['2026-99-99', '2026-02-30', '2026-13-01', '2026-00-10'])('rejects the impossible date %s', (since) => {
+    process.env.INPUT_SINCE = since;
+    expect(() => readInputs()).toThrow(/real calendar date/);
+  });
+
+  it('accepts a leap day that exists', () => {
+    process.env.INPUT_SINCE = '2024-02-29';
+    expect(readInputs().since).toBe('2024-02-29');
   });
 
   it('accepts a well-formed since', () => {
