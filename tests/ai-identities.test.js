@@ -18,6 +18,10 @@ describe('parseIdentity', () => {
     });
   });
 
+  it('finds the address when the value carries trailing text', () => {
+    expect(parseIdentity('Nameless <noreply@anthropic.com> (v2)').domain).toBe('anthropic.com');
+  });
+
   it('lowercases the domain', () => {
     expect(parseIdentity('Bot <BOT@Anthropic.COM>').domain).toBe('anthropic.com');
   });

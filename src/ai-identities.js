@@ -103,7 +103,7 @@ const CLAUDE_TOOL_MATCHERS = ['Code', 'Fable', 'Haiku', 'Opus', 'Sonnet'].map(ma
 
 // anchored, and `<` excluded from the class: unanchored `<([^>]*)>` retries at
 // every `<` in a value that never closes, which is quadratic on commit text
-const ADDRESS = /<([^<>]*)>[ \t]*$/;
+const ADDRESS = /<([^<>]*)>[^<>]*$/;
 const EMAIL = /^[^\s@]+@[^\s@]+$/;
 
 /**
