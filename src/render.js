@@ -66,7 +66,9 @@ export function badgeMarkdown(result, style) {
  * @returns {{content: string, replaced: number}} rewritten content and 1 when a pair was found
  */
 export function replaceMarkers(content, block) {
-  const lines = content.split('\n');
+  // rejoin on whatever the file already uses, or a CRLF repo gets rewritten whole
+  const newline = content.includes('\r\n') ? '\r\n' : '\n';
+  const lines = content.split(newline);
   const start = lines.findIndex((line) => line.trim() === START_MARKER);
   if (start === -1) return { content, replaced: 0 };
 
@@ -74,5 +76,5 @@ export function replaceMarkers(content, block) {
   if (end === -1) return { content, replaced: 0 };
 
   lines.splice(start + 1, end - start - 1, block);
-  return { content: lines.join('\n'), replaced: 1 };
+  return { content: lines.join(newline), replaced: 1 };
 }
