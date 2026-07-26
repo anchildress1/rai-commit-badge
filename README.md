@@ -46,11 +46,11 @@ Add once the infrastructure exists — each of these 404s until then:
 
 Squash merging collapses a PR into one commit: several footers, one line count. With no way to split the churn, the scorer averages the footer weights instead.
 
-| Merge strategy | Attribution |
-|---|---|
-| Merge commit | Per-commit, exact |
-| Rebase | Per-commit, exact |
-| Squash | Averaged across the PR's footers |
+| Merge strategy | Attribution                      |
+| -------------- | -------------------------------- |
+| Merge commit   | Per-commit, exact                |
+| Rebase         | Per-commit, exact                |
+| Squash         | Averaged across the PR's footers |
 
 The average is size-blind — a one-line config tweak and a full feature count the same. Squashed commits are flagged in the job summary, so the share of your score that was averaged is always visible.
 
@@ -60,13 +60,13 @@ The average is size-blind — a one-line config tweak and a full feature count t
 
 Each footer carries a weight derived from what it declares:
 
-| Footer | Declares | Weight |
-|---|---|---|
-| `Authored-by` | Zero AI | 0.00 |
-| `Commit-generated-by` | Trivial AI, no code | 0.05 |
-| `Assisted-by` | AI helped, human led | 0.25 |
-| `Co-authored-by` | Roughly 50/50 | 0.50 |
-| `Generated-by` | Majority AI | 0.90 |
+| Footer                | Declares             | Weight |
+| --------------------- | -------------------- | ------ |
+| `Authored-by`         | Zero AI              | 0.00   |
+| `Commit-generated-by` | Trivial AI, no code  | 0.05   |
+| `Assisted-by`         | AI helped, human led | 0.25   |
+| `Co-authored-by`      | Roughly 50/50        | 0.50   |
+| `Generated-by`        | Majority AI          | 0.90   |
 
 Commits are weighted by lines changed. Lockfiles, dependency trees, build output, and minified assets are excluded.
 
@@ -84,11 +84,11 @@ Inside the window, commits with no footer count as human, at weight 0.
 
 The colour tracks which footer dominates:
 
-| Score | | |
-|---|---|---|
-| 0–33% | `#0875AE` | human-led |
-| 34–66% | `#7C3AED` | shared |
-| 67–100% | `#C03070` | AI-led |
+| Score   |           |           |
+| ------- | --------- | --------- |
+| 0–33%   | `#0875AE` | human-led |
+| 34–66%  | `#7C3AED` | shared    |
+| 67–100% | `#C03070` | AI-led    |
 
 > [!NOTE]
 > `Co-authored-by` counts as AI only when the identity matches a known AI tool. Human co-authors score 0 — including the ones GitHub injects automatically when squashing.
@@ -141,7 +141,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -157,11 +157,11 @@ jobs:
 
 ### Inputs
 
-| Input | Default | Description |
-|---|---|---|
-| `since` | auto | Window start as `YYYY-MM-DD`. Auto-detects your earliest RAI footer. Set it when a stray old footer opens the window too early. |
-| `readme` | `README.md` | Path to the file holding the markers. |
-| `style` | `flat` | Valid shields style: `flat`, `flat-square`, `plastic`, `for-the-badge`, `social`. |
+| Input    | Default     | Description                                                                                                                     |
+| -------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `since`  | auto        | Window start as `YYYY-MM-DD`. Auto-detects your earliest RAI footer. Set it when a stray old footer opens the window too early. |
+| `readme` | `README.md` | Path to the file holding the markers.                                                                                           |
+| `style`  | `flat`      | Valid shields style: `flat`, `flat-square`, `plastic`, `for-the-badge`, `social`.                                               |
 
 ### Output
 
@@ -169,11 +169,11 @@ The badge markdown, written between your markers:
 
 ```markdown
 <!--START_SECTION:rai-badge-->
-![AI attribution](https://img.shields.io/badge/AI%20attribution-42%25%20since%202026--03-C03070?style=flat)
+![AI attribution](https://img.shields.io/badge/AI%20attribution-42%25%20since%202026--03-7C3AED?style=flat)
 <!--END_SECTION:rai-badge-->
 ```
 
-Granularity, commit counts, and excluded churn go to the workflow job summary.
+Granularity and commit counts go to the workflow job summary.
 
 ---
 
@@ -197,10 +197,10 @@ See [`docs/prd.md`](docs/prd.md) for full scope.
 
 ## Related 🔗
 
-| Project | What it does |
-|---|---|
+| Project                                                  | What it does                                                                                                                                                   |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **[rai-lint](https://github.com/anchildress1/rai-lint)** | Enforces the footers at commit time. `commitlint-plugin-rai` for Node, `gitlint-rai` for Python. **Start here** — this action has nothing to score without it. |
-| **rai-commit-badge** (you are here) | Reads the footers back out of history and publishes the badge. |
+| **rai-commit-badge** (you are here)                      | Reads the footers back out of history and publishes the badge.                                                                                                 |
 
 Background on the convention: [Did AI Erase Attribution? Your Git History Is Missing a Co-Author](https://dev.to/anchildress1/did-ai-erase-attribution-your-git-history-is-missing-a-co-author-1m2l)
 
