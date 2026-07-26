@@ -85,7 +85,7 @@ export const AI_EMAIL_DOMAINS = [
   'warp.dev',
 ];
 
-const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const escape = (text) => text.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
 // Boundaries are alphanumeric rather than \b so a term carrying `[bot]`, a
 // hyphen, or a version number still matches on its own terms.

@@ -90,6 +90,7 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd() 
   }
 
   await core.summary.addRaw(buildSummary({ result, badge, readme, replaced, commitState })).write();
-  core.info(`AI attribution: ${result.attributed ? `${result.percent.toFixed(1)}%` : 'no attribution'}`);
+  const headline = result.attributed ? `${result.percent.toFixed(1)}%` : 'no attribution';
+  core.info(`AI attribution: ${headline}`);
   return result;
 }

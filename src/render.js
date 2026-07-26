@@ -25,7 +25,7 @@ const NO_ATTRIBUTION_COLOR = '9F9F9F';
  * @returns {string} escaped for a shields path segment
  */
 export function shieldsEscape(text) {
-  return text.replace(/-/g, '--').replace(/_/g, '__').replace(/%/g, '%25').replace(/ /g, '%20');
+  return text.replaceAll('-', '--').replaceAll('_', '__').replaceAll('%', '%25').replaceAll(' ', '%20');
 }
 
 /**

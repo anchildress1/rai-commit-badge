@@ -2,6 +2,23 @@ import { isKnownAiIdentity } from './ai-identities.js';
 import { parseFooterLine, WEIGHTS } from './keys.js';
 
 /**
+ * Weigh one paragraph: the highest RAI footer in it, ignoring human co-authors.
+ *
+ * @param {string} paragraph one blank-line-delimited block of the message
+ * @returns {number | null} the group's weight, or null when it holds no attribution
+ */
+function groupWeight(paragraph) {
+  let best = null;
+  for (const line of paragraph.split('\n')) {
+    const footer = parseFooterLine(line);
+    if (!footer) continue;
+    if (footer.key === 'co-authored-by' && !isKnownAiIdentity(footer.value)) continue;
+    best = best === null ? WEIGHTS[footer.key] : Math.max(best, WEIGHTS[footer.key]);
+  }
+  return best;
+}
+
+/**
  * Resolve one commit message to a single attribution weight.
  *
  * Squash merges concatenate every commit message against one churn number, so
@@ -13,19 +30,10 @@ import { parseFooterLine, WEIGHTS } from './keys.js';
  * @returns {{weight: number | null, groups: number}} null weight when nothing is attributed
  */
 export function resolveWeight(message) {
-  const weights = [];
-
-  for (const paragraph of message.split(/\n[ \t]*\n/)) {
-    let best = null;
-    for (const line of paragraph.split('\n')) {
-      const footer = parseFooterLine(line);
-      if (!footer) continue;
-      if (footer.key === 'co-authored-by' && !isKnownAiIdentity(footer.value)) continue;
-      const weight = WEIGHTS[footer.key];
-      best = best === null ? weight : Math.max(best, weight);
-    }
-    if (best !== null) weights.push(best);
-  }
+  const weights = message
+    .split(/\n[ \t]*\n/)
+    .map(groupWeight)
+    .filter((weight) => weight !== null);
 
   if (weights.length === 0) return { weight: null, groups: 0 };
   const mean = weights.reduce((sum, w) => sum + w, 0) / weights.length;
