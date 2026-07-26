@@ -16,6 +16,14 @@ _A GitHub Action that scores [RAI attribution footers](https://github.com/anchil
 
 [![License: Polyform Shield 1.0.0](https://img.shields.io/badge/license-Polyform%20Shield%201.0.0-orange?style=for-the-badge)](LICENSE) [![Pre-release](https://img.shields.io/badge/status-pre--release-9F9F9F?style=for-the-badge)](docs/prd.md)
 
+<!-- prettier-ignore-start -->
+<!--START_SECTION:rai-badge-->
+![AI attribution](https://img.shields.io/badge/AI%20attribution-90%25%20since%202026--07-C03070?style=for-the-badge)
+<!--END_SECTION:rai-badge-->
+<!-- prettier-ignore-end -->
+
+_That badge is this action, scoring itself._
+
 <!--
 Add once the infrastructure exists — each of these 404s until then:
 [![CI](https://img.shields.io/github/actions/workflow/status/anchildress1/rai-commit-badge/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=fff&label=ci)](https://github.com/anchildress1/rai-commit-badge/actions/workflows/ci.yml)
@@ -121,6 +129,9 @@ A new score produces a new URL, so the image refreshes on its own.
 <!--START_SECTION:rai-badge-->
 <!--END_SECTION:rai-badge-->
 ```
+
+> [!TIP]
+> If prettier formats your README, wrap the pair in `<!-- prettier-ignore-start -->` and `<!-- prettier-ignore-end -->`. Prettier adds a blank line after the start marker, which the action then rewrites on the next run — the fences keep the block byte-stable.
 
 **2.** Add the workflow:
 
