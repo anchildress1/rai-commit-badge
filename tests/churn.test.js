@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isExcluded, splitChurn } from '../src/churn.js';
+import { countChurn, isExcluded } from '../src/churn.js';
 
 describe('isExcluded', () => {
   it.each([
@@ -26,16 +26,16 @@ describe('isExcluded', () => {
   );
 });
 
-describe('splitChurn', () => {
-  it('separates excluded lines from counted lines', () => {
+describe('countChurn', () => {
+  it('totals added plus deleted, skipping excluded paths', () => {
     const files = [
       { added: 10, deleted: 5, path: 'src/index.js' },
       { added: 900, deleted: 100, path: 'package-lock.json' },
     ];
-    expect(splitChurn(files)).toEqual({ churn: 15, excluded: 1000 });
+    expect(countChurn(files)).toBe(15);
   });
 
-  it('returns zeroes for a commit with no counted files', () => {
-    expect(splitChurn([])).toEqual({ churn: 0, excluded: 0 });
+  it('returns zero for a commit with no files', () => {
+    expect(countChurn([])).toBe(0);
   });
 });

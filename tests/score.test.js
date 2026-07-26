@@ -68,7 +68,6 @@ describe('score', () => {
       commit('2026-01-02', 'chore: lockfile churn', src(9990, 'package-lock.json')),
     ]);
     expect(withLock.churn).toBe(10);
-    expect(withLock.excludedChurn).toBe(9990);
     expect(withLock.percent).toBeCloseTo(90, 6);
   });
 

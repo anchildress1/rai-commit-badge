@@ -1,4 +1,4 @@
-import { splitChurn } from './churn.js';
+import { countChurn } from './churn.js';
 import { resolveWeight } from './groups.js';
 
 /**
@@ -11,16 +11,14 @@ import { resolveWeight } from './groups.js';
  * @param {{since?: string}} [options] `since` as `YYYY-MM-DD`
  * @returns {{attributed: boolean, percent: number, displayed: number, windowStart: string | null,
  *   commits: number, windowCommits: number, attributedCommits: number, squashedCommits: number,
- *   churn: number, excludedChurn: number}}
+ *   churn: number}}
  */
 export function score(commits, { since } = {}) {
   const scored = commits.map((commit) => {
-    const { churn, excluded } = splitChurn(commit.files);
     const { weight, groups } = resolveWeight(commit.message);
-    return { date: commit.date, weight, groups, churn, excluded };
+    return { date: commit.date, weight, groups, churn: countChurn(commit.files) };
   });
 
-  const excludedChurn = scored.reduce((sum, c) => sum + c.excluded, 0);
   const attributedDates = scored.filter((c) => c.weight !== null).map((c) => c.date);
   const windowStart = since ?? (attributedDates.length ? attributedDates.sort()[0] : null);
 
@@ -35,7 +33,6 @@ export function score(commits, { since } = {}) {
       attributedCommits: 0,
       squashedCommits: 0,
       churn: 0,
-      excludedChurn,
     };
   }
 
@@ -54,6 +51,5 @@ export function score(commits, { since } = {}) {
     attributedCommits: window.filter((c) => c.weight !== null).length,
     squashedCommits: window.filter((c) => c.groups > 1).length,
     churn,
-    excludedChurn,
   };
 }

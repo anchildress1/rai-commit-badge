@@ -87,7 +87,6 @@ describe('readCommits', () => {
     const result = score(readCommits(dir));
     expect(result.windowStart).toBe('2026-01-01');
     expect(result.churn).toBe(100);
-    expect(result.excludedChurn).toBe(5000);
     expect(result.displayed).toBe(81);
   });
 });

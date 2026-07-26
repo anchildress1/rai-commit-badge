@@ -16,18 +16,11 @@ export function isExcluded(path) {
 }
 
 /**
- * Split a commit's files into counted and excluded churn.
+ * Total a commit's countable churn.
  *
  * @param {Array<{added: number, deleted: number, path: string}>} files
- * @returns {{churn: number, excluded: number}} lines added plus deleted, per side
+ * @returns {number} lines added plus deleted, excluded paths omitted
  */
-export function splitChurn(files) {
-  let churn = 0;
-  let excluded = 0;
-  for (const file of files) {
-    const lines = file.added + file.deleted;
-    if (isExcluded(file.path)) excluded += lines;
-    else churn += lines;
-  }
-  return { churn, excluded };
+export function countChurn(files) {
+  return files.reduce((total, file) => (isExcluded(file.path) ? total : total + file.added + file.deleted), 0);
 }
