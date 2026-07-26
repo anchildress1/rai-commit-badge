@@ -4,13 +4,18 @@ import { isKnownAiIdentity, parseIdentity } from '../src/ai-identities.js';
 describe('parseIdentity', () => {
   it('splits an addressed identity', () => {
     expect(parseIdentity('Claude Opus 5 <noreply@anthropic.com>')).toEqual({
+      raw: 'Claude Opus 5 <noreply@anthropic.com>',
       name: 'Claude Opus 5',
       domain: 'anthropic.com',
     });
   });
 
   it('keeps a name-only identity whole', () => {
-    expect(parseIdentity('Claude Opus 4.8')).toEqual({ name: 'Claude Opus 4.8', domain: '' });
+    expect(parseIdentity('Claude Opus 4.8')).toEqual({
+      raw: 'Claude Opus 4.8',
+      name: 'Claude Opus 4.8',
+      domain: '',
+    });
   });
 
   it('lowercases the domain', () => {
