@@ -10,7 +10,7 @@ const pct = (part, whole) => (whole ? `${((100 * part) / whole).toFixed(1)}%` : 
  * @param {string} params.badge the badge markdown
  * @param {string} params.readme the target file path
  * @param {number} params.replaced marker pairs rewritten
- * @param {string} params.commitState one of `committed`, `unchanged`, `dry-run`
+ * @param {string} params.commitState `no markers`, `unchanged`, or `committed to <branch>`
  * @returns {string} markdown for `$GITHUB_STEP_SUMMARY`
  */
 export function buildSummary({ result, badge, readme, replaced, commitState }) {
