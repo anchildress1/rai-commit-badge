@@ -18,7 +18,7 @@ A GitHub Marketplace Action that scores a repo's footers and commits a shields.i
 | ---------------------------------- | ------------------------------- |
 | Enforcement                        | rai-lint gates at commit time   |
 | Hosted `?repo=org/name` service    | Line stats need a clone         |
-| Incremental scoring / cached state | Full recompute is ~1s           |
+| Incremental scoring / cached state | Recompute stays inside the job  |
 | npm package or CLI                 | Nobody asked                    |
 | Semantic AI-detection              | Scores what the author declared |
 | Python twin                        | Runs in CI                      |
