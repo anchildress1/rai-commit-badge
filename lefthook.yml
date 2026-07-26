@@ -6,7 +6,7 @@ pre-commit:
       stage_fixed: true
     lint:
       glob: '*.js'
-      run: npx eslint --fix {staged_files}
+      run: npx eslint --fix --no-warn-ignored {staged_files}
       stage_fixed: true
     test:
       glob: '{src,tests}/**/*.js'

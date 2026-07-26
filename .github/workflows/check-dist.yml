@@ -1,0 +1,63 @@
+name: check-dist
+
+# The action runs the committed bundle, so a dist/ that lags src/ ships stale
+# behaviour with a green build.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - '.churnignore'
+      - 'dist/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/check-dist.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - '.churnignore'
+      - 'dist/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/check-dist.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-dist:
+    name: Rebuild and compare
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Compare committed dist/ to a fresh build
+        id: diff
+        run: |
+          if [ -n "$(git status --porcelain -- dist/)" ]; then
+            echo "dist/ is stale. Run 'make build' and commit the result." >&2
+            git --no-pager diff --stat -- dist/ >&2
+            exit 1
+          fi
+
+      - name: Upload the rebuilt bundle
+        if: failure() && steps.diff.outcome == 'failure'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
