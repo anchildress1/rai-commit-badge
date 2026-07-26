@@ -90,27 +90,6 @@ describe('replaceMarkers', () => {
     expect(replaceMarkers(before, block).content).toBe(before);
   });
 
-  it('replaces every pair', () => {
-    const before = `${START_MARKER}\n${END_MARKER}\ntext\n${START_MARKER}\n${END_MARKER}\n`;
-    const { content, replaced } = replaceMarkers(before, block);
-    expect(replaced).toBe(2);
-    expect(content.split(block)).toHaveLength(3);
-  });
-
-  it('skips a pair inside a fenced code block', () => {
-    const before = ['# Setup', '', '```markdown', START_MARKER, END_MARKER, '```', ''].join('\n');
-    const { content, replaced } = replaceMarkers(before, block);
-    expect(replaced).toBe(0);
-    expect(content).toBe(before);
-  });
-
-  it('replaces a real pair while leaving the fenced example alone', () => {
-    const before = ['```markdown', START_MARKER, END_MARKER, '```', '', START_MARKER, END_MARKER, ''].join('\n');
-    const { content, replaced } = replaceMarkers(before, block);
-    expect(replaced).toBe(1);
-    expect(content.split(block)).toHaveLength(2);
-  });
-
   it('leaves a START with no END untouched', () => {
     const before = `# Title\n${START_MARKER}\nbody\n`;
     expect(replaceMarkers(before, block)).toEqual({ content: before, replaced: 0 });

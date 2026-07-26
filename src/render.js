@@ -58,50 +58,21 @@ export function badgeMarkdown(result, style) {
   return `![${LABEL}](${badgeUrl(result, style)})`;
 }
 
-const isFenceDelimiter = (line) => /^\s*(?:```|~~~)/.test(line);
-
 /**
- * Replace the body of every marker pair with `block`.
- *
- * Pairs inside a fenced code block are skipped — the setup instructions in a
- * README are themselves a fenced pair. A `START` with no matching `END` is left
- * alone.
+ * Replace the body of the marker pair with `block`.
  *
  * @param {string} content the file's current contents
  * @param {string} block the markdown to place between the markers
- * @returns {{content: string, replaced: number}} rewritten content and the number of pairs replaced
+ * @returns {{content: string, replaced: number}} rewritten content and 1 when a pair was found
  */
 export function replaceMarkers(content, block) {
   const lines = content.split('\n');
-  const out = [];
-  let fenced = false;
-  let replaced = 0;
+  const start = lines.findIndex((line) => line.trim() === START_MARKER);
+  if (start === -1) return { content, replaced: 0 };
 
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i];
-    if (isFenceDelimiter(line)) fenced = !fenced;
+  const end = lines.findIndex((line, index) => index > start && line.trim() === END_MARKER);
+  if (end === -1) return { content, replaced: 0 };
 
-    if (fenced || line.trim() !== START_MARKER) {
-      out.push(line);
-      continue;
-    }
-
-    let end = i + 1;
-    let sawFence = false;
-    while (end < lines.length) {
-      if (isFenceDelimiter(lines[end])) sawFence = !sawFence;
-      if (!sawFence && lines[end].trim() === END_MARKER) break;
-      end += 1;
-    }
-    if (end >= lines.length) {
-      out.push(line);
-      continue;
-    }
-
-    out.push(line, block, lines[end]);
-    replaced += 1;
-    i = end;
-  }
-
-  return { content: out.join('\n'), replaced };
+  lines.splice(start + 1, end - start - 1, block);
+  return { content: lines.join('\n'), replaced: 1 };
 }

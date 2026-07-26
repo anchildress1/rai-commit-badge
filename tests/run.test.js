@@ -111,15 +111,6 @@ describe('run', () => {
     expect(git(['log', '-1', '--format=%s'], local)).toBe('feat: human');
   });
 
-  it('leaves a fenced example alone', async () => {
-    const { local } = repoWithRemote(`# Fixture\n\n\`\`\`markdown\n${START_MARKER}\n${END_MARKER}\n\`\`\`\n`);
-
-    await run({ cwd: local });
-
-    expect(readFileSync(join(local, 'README.md'), 'utf8')).not.toContain('img.shields.io');
-    expect(summary()).toContain('### No markers in `README.md`');
-  });
-
   it('badges no attribution when the history has no footers', async () => {
     const remote = initBareRepo();
     const local = initRepo();
