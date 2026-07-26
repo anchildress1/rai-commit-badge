@@ -72,7 +72,10 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd() 
 
   let commitState = 'no markers';
   if (replaced === 0) {
-    core.warning(`No RAI badge markers in ${readme} — see the job summary for the snippet to paste.`);
+    // a missing file already warned; saying "no markers" as well misreads the cause
+    if (original !== null) {
+      core.warning(`No RAI badge markers in ${readme} — see the job summary for the snippet to paste.`);
+    }
   } else if (content === original) {
     commitState = 'unchanged';
     core.info('Badge is byte-identical — skipping the commit.');
