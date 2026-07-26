@@ -36,8 +36,7 @@ A GitHub Marketplace Action that scores a repo's footers and commits a shields.i
 | `Generated-by` | 0.90 |
 
 ```
-aiPercent       = Σ(weight × churn) / Σ(churn)
-coveragePercent = attributedChurn / totalChurn
+aiPercent = Σ(weight × churn) / Σ(churn)
 ```
 
 Ceiling is 0.90.
@@ -93,7 +92,7 @@ Squash concatenates every commit message, so one commit can carry several footer
 - A group whose only RAI-keyed line is a non-AI `Co-authored-by` is **discarded**
 - `Authored-by` counts as a group, at 0.00
 
-README must warn against squash merging.
+The average is size-blind. README documents the cost, without prescribing a merge strategy — squashing is the common case, measured across 24 repos.
 
 ### Known gaps
 
@@ -140,7 +139,7 @@ When the target file lacks markers, the action leaves it untouched and the job s
 
 ### Job summary
 
-Written to `$GITHUB_STEP_SUMMARY` every run, computed in-memory: score, coverage, window start, granularity, and commit counts. Plus the marker snippet when the README lacks them.
+Written to `$GITHUB_STEP_SUMMARY` every run, computed in-memory: score, window start, granularity, commit counts, and excluded churn. Plus the marker snippet when the README lacks them.
 
 ---
 

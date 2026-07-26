@@ -42,20 +42,17 @@ Add once the infrastructure exists — each of these 404s until then:
 
 ---
 
-## ⚠️ Do not use squash merge
+## What squashing costs 🗜️
 
-> [!WARNING]
-> **Squash merging destroys attribution granularity. For accurate numbers, use merge commits or rebase.**
+Squash merging collapses a PR into one commit: several footers, one line count. With no way to split the churn, the scorer averages the footer weights instead.
 
-Squashing collapses every commit in the PR into one message with one line count, so the scorer can no longer tell which lines came from which footer. It averages instead.
+| Merge strategy | Attribution |
+|---|---|
+| Merge commit | Per-commit, exact |
+| Rebase | Per-commit, exact |
+| Squash | Averaged across the PR's footers |
 
-| Merge strategy | Attribution | Recommended |
-|---|---|---|
-| Merge commit | Fully preserved, per-commit | ✅ |
-| Rebase | Fully preserved, per-commit | ✅ |
-| Squash | Collapsed — scorer must average | ❌ |
-
-Squashed history is flagged in the workflow job summary, so you can see how much of your score was guesswork.
+The average is size-blind — a one-line config tweak and a full feature count the same. Squashed commits are flagged in the job summary, so the share of your score that was averaged is always visible.
 
 ---
 
@@ -83,7 +80,7 @@ The window opens at your **earliest RAI footer**, and the badge says so:
 AI attribution | 42% since 2026-03
 ```
 
-Inside the window, commits with no footer are assumed human and count at weight 0. The job summary reports coverage, so you can see how much of the score is *declared* versus *assumed*.
+Inside the window, commits with no footer count as human, at weight 0.
 
 The colour tracks which footer dominates:
 
@@ -176,7 +173,7 @@ The badge markdown, written between your markers:
 <!--END_SECTION:rai-badge-->
 ```
 
-Coverage, granularity, and commit counts go to the workflow job summary.
+Granularity, commit counts, and excluded churn go to the workflow job summary.
 
 ---
 
