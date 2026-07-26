@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "rai-commit-badge",
+      "changelog-path": "CHANGELOG.md"
+    }
+  },
+  "changelog-sections": [
+    { "type": "feat", "section": "Features" },
+    { "type": "fix", "section": "Bug Fixes" },
+    { "type": "perf", "section": "Performance Improvements" },
+    { "type": "revert", "section": "Reverts" },
+    { "type": "docs", "section": "Documentation" },
+    { "type": "chore", "section": "Miscellaneous Chores", "hidden": true }
+  ],
+  "draft": true,
+  "include-component-in-tag": false,
+  "include-v-in-tag": true,
+  "separate-pull-requests": false,
+  "plugins": ["sentence-case"]
+}
