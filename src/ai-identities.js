@@ -93,6 +93,13 @@ const matcher = (term) => new RegExp(`(?<![a-z0-9])${escape(term)}(?![a-z0-9])`,
 
 const NON_AI_MATCHERS = NON_AI_IDENTITIES.map(matcher);
 const AI_NAME_MATCHERS = AI_NAMES.map(matcher);
+// A non-vendor email disambiguates the common human name; name-only Claude
+// trailers still need to match because many tools omit an address entirely.
+const ADDRESSED_AI_NAME_MATCHERS = AI_NAMES.filter((name) => name !== 'Claude').map(matcher);
+const CLAUDE_PREFIX = /^Claude(?=[^a-z0-9]|$)/i;
+// Anthropic model families, so `Claude Opus 5` reads as a tool where a bare
+// `Claude` reads as a person. Tracks the family names, not the versions.
+const CLAUDE_TOOL_MATCHERS = ['Code', 'Fable', 'Haiku', 'Opus', 'Sonnet'].map(matcher);
 
 const ADDRESS = /<([^>]*)>/;
 const EMAIL = /^[^\s@]+@[^\s@]+$/;
@@ -144,10 +151,12 @@ export function isKnownAiIdentity(value) {
 
   if (NON_AI_MATCHERS.some((m) => m.test(raw))) return false;
 
-  // without a usable domain the name is unreliable — a multi-tool or prose value
-  // holds its tools outside the name, so the whole value is the subject
+  // A name-only or malformed value can carry multiple tools in prose, so search
+  // it whole. A valid address lets the domain disambiguate common human names.
   const subject = domain ? name : raw;
-  if (AI_NAME_MATCHERS.some((m) => m.test(subject))) return true;
+  const nameMatchers = domain ? ADDRESSED_AI_NAME_MATCHERS : AI_NAME_MATCHERS;
+  if (nameMatchers.some((m) => m.test(subject))) return true;
+  if (domain && CLAUDE_PREFIX.test(name) && CLAUDE_TOOL_MATCHERS.some((m) => m.test(name))) return true;
 
   // a parent domain counts, so `bot.example.com` resolves through `example.com`
   const labels = domain.split('.');

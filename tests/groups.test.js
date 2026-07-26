@@ -36,6 +36,13 @@ describe('resolveWeight', () => {
     expect(resolveWeight(`feat: thing\n\nCo-authored-by: ${AI}`)).toEqual({ weight: 0.5, groups: 1 });
   });
 
+  it('discards a human co-author whose name matches an ambiguous tool', () => {
+    expect(resolveWeight('feat: thing\n\nCo-authored-by: Claude Martin <claude@example.com>')).toEqual({
+      weight: null,
+      groups: 0,
+    });
+  });
+
   it('counts an Authored-by-only group at 0.00', () => {
     expect(resolveWeight(`feat: thing\n\nAuthored-by: ${HUMAN}`)).toEqual({ weight: 0, groups: 1 });
   });

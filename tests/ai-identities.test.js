@@ -32,6 +32,9 @@ describe('isKnownAiIdentity', () => {
     'Claude Opus 5 <noreply@anthropic.com>',
     'Claude Opus 4.8',
     'Claude',
+    'Claude Code <noreply@github.com>',
+    'Claude Opus 5 <bot@example.com>',
+    'Claude 3.5 Sonnet <bot@example.com>',
     'Some Bot <bot@eng.anthropic.com>',
     'Nameless <noreply@anthropic.com>',
   ])('matches %s', (value) => {
@@ -41,6 +44,8 @@ describe('isKnownAiIdentity', () => {
   it.each([
     'Ashley Childress <6563688+anchildress1@users.noreply.github.com>',
     'dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>',
+    'Claude <claude@example.com>',
+    'Claude Martin <claude@example.com>',
     'Jane Doe <jane@example.com>',
     'Jane Doe',
     'Claudette Fontaine <claudette@example.com>',
@@ -49,8 +54,11 @@ describe('isKnownAiIdentity', () => {
     expect(isKnownAiIdentity(value)).toBe(false);
   });
 
-  it('reads the display name, not the address, when the two disagree', () => {
-    expect(isKnownAiIdentity('Claude <jane@example.com>')).toBe(true);
+  it('matches an unambiguous tool name on a shared email domain', () => {
+    expect(isKnownAiIdentity('Copilot <jane@example.com>')).toBe(true);
+  });
+
+  it('does not read tool names from the address', () => {
     expect(isKnownAiIdentity('Jane Doe <jane@claude.example.com>')).toBe(false);
   });
 });
