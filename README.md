@@ -84,6 +84,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -95,17 +96,23 @@ jobs:
 > [!IMPORTANT]
 > `fetch-depth: 0` is required. A shallow clone has no history to score, and the action fails rather than publishing a wrong number.
 
+> [!IMPORTANT]
+> **Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to create and approve pull requests"** has to be on, or the action cannot open its pull request.
+
+The badge lands on `rai-badge--branches--<base>` and arrives as a pull request, the way release-please does it. Your branch protection and required checks stay in force, and the branch is cut fresh from the base on every run, so the PR always holds exactly one commit.
+
 ---
 
 ## Configuration ⚙️
 
 ### Inputs
 
-| Input    | Default     | Description                                                                                                                     |
-| -------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `since`  | auto        | Window start as `YYYY-MM-DD`. Auto-detects your earliest RAI footer. Set it when a stray old footer opens the window too early. |
-| `readme` | `README.md` | Path to the file holding the markers.                                                                                           |
-| `style`  | `flat`      | Valid shields style: `flat`, `flat-square`, `plastic`, `for-the-badge`, `social`.                                               |
+| Input    | Default               | Description                                                                                                                     |
+| -------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `since`  | auto                  | Window start as `YYYY-MM-DD`. Auto-detects your earliest RAI footer. Set it when a stray old footer opens the window too early. |
+| `readme` | `README.md`           | Path to the file holding the markers.                                                                                           |
+| `style`  | `flat`                | Valid shields style: `flat`, `flat-square`, `plastic`, `for-the-badge`, `social`.                                               |
+| `token`  | `${{ github.token }}` | Token used to open the badge pull request. The default `GITHUB_TOKEN` is enough.                                                |
 
 ### Output
 
@@ -205,7 +212,8 @@ A new score produces a new URL, so the image refreshes on its own.
 ## Security 🔒
 
 - Runs entirely on `GITHUB_TOKEN`. No secrets, no PAT, no third-party service.
-- Needs `contents: write` to commit the updated badge line. Grant it at the job level.
+- Needs `contents: write` to push the badge branch and `pull-requests: write` to open the PR. Grant both at the job level.
+- Writes only to `rai-badge--branches--<base>`. Your base branch takes no direct push, so its required checks stay in charge.
 - Reads git history and writes one thing: the marked block in the file you point `readme` at.
 - Its commits carry RAI footers, so your own commitlint rules stay satisfied.
 

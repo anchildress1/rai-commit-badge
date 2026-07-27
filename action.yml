@@ -18,6 +18,10 @@ inputs:
     description: Shields badge style — flat, flat-square, plastic, for-the-badge, or social.
     required: false
     default: flat
+  token:
+    description: Token used to open the badge pull request. Needs contents:write and pull-requests:write.
+    required: false
+    default: ${{ github.token }}
 
 runs:
   using: node24

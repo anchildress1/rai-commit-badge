@@ -23,14 +23,37 @@ beforeAll(() => {
 beforeEach(() => {
   writeFileSync(summaryPath, '');
   process.env.GITHUB_STEP_SUMMARY = summaryPath;
+  process.env.GITHUB_REPOSITORY = 'anchildress1/rai-commit-badge';
   core.summary.emptyBuffer();
 });
 
 afterEach(() => {
-  for (const key of ['INPUT_SINCE', 'INPUT_README', 'INPUT_STYLE', 'GITHUB_STEP_SUMMARY', 'GITHUB_WORKSPACE']) {
+  for (const key of [
+    'INPUT_SINCE',
+    'INPUT_README',
+    'INPUT_STYLE',
+    'GITHUB_STEP_SUMMARY',
+    'GITHUB_WORKSPACE',
+    'GITHUB_REPOSITORY',
+  ]) {
     delete process.env[key];
   }
 });
+
+/** Fake fetch standing in for the pull request API: none open, then created. */
+function fakeFetch(number = 7) {
+  const calls = [];
+  const impl = async (url, init = {}) => {
+    const method = init.method ?? 'GET';
+    calls.push({ url, method });
+    const body = method === 'POST' ? { number } : [];
+    return { ok: true, status: 200, text: async () => JSON.stringify(body) };
+  };
+  impl.calls = calls;
+  return impl;
+}
+
+const BADGE_BRANCH = 'rai-badge--branches--main';
 
 afterAll(cleanup);
 
@@ -57,7 +80,7 @@ function repoWithRemote(readme = README) {
 
 describe('readInputs', () => {
   it('defaults every input', () => {
-    expect(readInputs()).toEqual({ since: undefined, readme: 'README.md', style: 'flat' });
+    expect(readInputs()).toEqual({ since: undefined, readme: 'README.md', style: 'flat', token: '' });
   });
 
   it('rejects an unknown style', () => {
@@ -87,28 +110,43 @@ describe('readInputs', () => {
 });
 
 describe('run', () => {
-  it('writes the badge, commits it, and pushes', async () => {
+  it('writes the badge onto a branch and opens a pull request', async () => {
     const { remote, local } = repoWithRemote();
+    const base = git(['rev-parse', 'main'], remote);
+    const fetchImpl = fakeFetch(7);
 
-    const result = await run({ cwd: local });
+    const result = await run({ cwd: local, fetchImpl });
 
     expect(result.displayed).toBe(81);
     const content = readFileSync(join(local, 'README.md'), 'utf8');
     expect(content).toContain('https://img.shields.io/badge/AI%20attribution-81%25%20since%202026--01-C03070');
-    expect(git(['log', '-1', '--format=%s', 'main'], remote)).toBe('docs: update AI attribution badge to 81%');
+    expect(git(['log', '-1', '--format=%s', BADGE_BRANCH], remote)).toBe('docs: update AI attribution badge to 81%');
+    // the base never takes a direct push, so its checks stay in charge
+    expect(git(['rev-parse', 'main'], remote)).toBe(base);
+    expect(fetchImpl.calls.map((call) => call.method)).toEqual(['GET', 'POST']);
     expect(summary()).toContain('| Scored churn | 104 lines |');
+    expect(summary()).toContain('pull request #7');
   });
 
   it('skips the commit when the badge is byte-identical', async () => {
     const { remote, local } = repoWithRemote();
-    await run({ cwd: local });
-    const head = git(['rev-parse', 'main'], remote);
+    await run({ cwd: local, fetchImpl: fakeFetch() });
+    const head = git(['rev-parse', BADGE_BRANCH], remote);
 
     core.summary.emptyBuffer();
-    await run({ cwd: local });
+    const fetchImpl = fakeFetch();
+    await run({ cwd: local, fetchImpl });
 
-    expect(git(['rev-parse', 'main'], remote)).toBe(head);
+    expect(git(['rev-parse', BADGE_BRANCH], remote)).toBe(head);
+    expect(fetchImpl.calls).toHaveLength(0);
     expect(summary()).toContain('| Badge | unchanged |');
+  });
+
+  it('fails when the repository is unknown', async () => {
+    const { local } = repoWithRemote();
+    delete process.env.GITHUB_REPOSITORY;
+
+    await expect(run({ cwd: local, fetchImpl: fakeFetch() })).rejects.toThrow(/GITHUB_REPOSITORY/);
   });
 
   it('prints the snippet when the file has no markers', async () => {
@@ -128,7 +166,7 @@ describe('run', () => {
     gitRun(['remote', 'add', 'origin', remote], local);
     gitRun(['push', '-q', '-u', 'origin', 'main'], local);
 
-    await run({ cwd: local });
+    await run({ cwd: local, fetchImpl: fakeFetch() });
 
     expect(readFileSync(join(local, 'README.md'), 'utf8')).toContain(
       'AI%20attribution-no%20attribution-9F9F9F?style=flat'
@@ -143,7 +181,7 @@ describe('run', () => {
     process.env.INPUT_STYLE = 'for-the-badge';
     process.env.INPUT_SINCE = '2026-01-02';
 
-    await run({ cwd: local });
+    await run({ cwd: local, fetchImpl: fakeFetch() });
 
     const content = readFileSync(join(local, 'BADGE.md'), 'utf8');
     expect(content).toContain('0%25%20since%202026--01-0875AE?style=for-the-badge');
