@@ -13,8 +13,8 @@ const PR_BODY = [
 /**
  * Build the commit message for a badge update.
  *
- * Subject only. Every RAI footer declares AI involvement and this action runs
- * none, and a bot cannot sign off on itself.
+ * Subject only: every RAI footer declares AI involvement this action never has,
+ * and a bot cannot meaningfully sign off on itself.
  *
  * @param {number} displayed the displayed integer percentage
  * @param {boolean} attributed whether any footer was found

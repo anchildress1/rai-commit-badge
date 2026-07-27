@@ -27,26 +27,12 @@ function clonePair() {
 }
 
 describe('commitMessage', () => {
-  it('states the score in the subject', () => {
-    expect(commitMessage(66, true)).toMatch(/^docs: update AI attribution badge to 66%$/m);
-  });
-
-  it('claims no AI attribution, because none ran', () => {
-    const message = commitMessage(66, true);
-    for (const footer of [
-      'Authored-by',
-      'Commit-generated-by',
-      'Assisted-by',
-      'Co-authored-by',
-      'Generated-by',
-      'Signed-off-by',
-    ]) {
-      expect(message).not.toMatch(new RegExp(`^${footer}:`, 'im'));
-    }
+  it('is the scored subject and nothing else', () => {
+    expect(commitMessage(66, true)).toBe('docs: update AI attribution badge to 66%\n');
   });
 
   it('drops the number when nothing is attributed', () => {
-    expect(commitMessage(0, false)).toMatch(/^docs: update AI attribution badge$/m);
+    expect(commitMessage(0, false)).toBe('docs: update AI attribution badge\n');
   });
 
   it('keeps the subject inside 72 characters', () => {
