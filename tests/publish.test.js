@@ -27,18 +27,12 @@ function clonePair() {
 }
 
 describe('commitMessage', () => {
-  it('carries a RAI footer', () => {
-    const message = commitMessage(66, true);
-    expect(message).toMatch(/^docs: update AI attribution badge to 66%$/m);
-    expect(message).toMatch(/^Commit-generated-by: rai-commit-badge <noreply@github\.com>$/m);
-  });
-
-  it('leaves the sign-off to the human who merges', () => {
-    expect(commitMessage(66, true)).not.toMatch(/^Signed-off-by:/m);
+  it('is the scored subject and nothing else', () => {
+    expect(commitMessage(66, true)).toBe('docs: update AI attribution badge to 66%\n');
   });
 
   it('drops the number when nothing is attributed', () => {
-    expect(commitMessage(0, false)).toMatch(/^docs: update AI attribution badge$/m);
+    expect(commitMessage(0, false)).toBe('docs: update AI attribution badge\n');
   });
 
   it('keeps the subject inside 72 characters', () => {
