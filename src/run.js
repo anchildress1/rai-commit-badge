@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import * as core from '@actions/core';
 import { isShallow, readCommits } from './git.js';
-import { commitAndPush, commitMessage } from './publish.js';
+import { commitMessage, commitToBadgeBranch, ensurePullRequest } from './publish.js';
 import { badgeMarkdown, replaceMarkers, STYLES } from './render.js';
 import { score } from './score.js';
 import { buildSummary } from './summary.js';
@@ -40,18 +40,37 @@ export function readInputs() {
     throw new Error(`Invalid since "${since}". Expected a real calendar date as YYYY-MM-DD.`);
   }
 
-  return { since: since || undefined, readme: core.getInput('readme') || 'README.md', style };
+  return {
+    since: since || undefined,
+    readme: core.getInput('readme') || 'README.md',
+    style,
+    token: core.getInput('token'),
+  };
+}
+
+/**
+ * Split `owner/repo` out of the Actions environment.
+ *
+ * @returns {{owner: string, repo: string}}
+ * @throws {Error} when the variable is absent, which means this is not a runner
+ */
+function readRepository() {
+  const [owner, repo] = (process.env.GITHUB_REPOSITORY ?? '').split('/');
+  if (!owner || !repo) {
+    throw new Error('GITHUB_REPOSITORY is not set — the badge pull request needs a repository to open against.');
+  }
+  return { owner, repo };
 }
 
 /**
  * Score the repository, rewrite the badge, and publish the change.
  *
- * @param {{cwd?: string}} [options] repository directory, defaults to the workspace
+ * @param {{cwd?: string, fetchImpl?: typeof fetch}} [options] repository directory and fetch, injected for tests
  * @returns {Promise<object>} the scored result
- * @throws {Error} on a shallow clone, bad input, or a push that cannot land
+ * @throws {Error} on a shallow clone, bad input, or a push or pull request that cannot land
  */
-export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd() } = {}) {
-  const { since, readme, style } = readInputs();
+export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd(), fetchImpl } = {}) {
+  const { since, readme, style, token } = readInputs();
 
   if (isShallow(cwd)) {
     throw new Error('Shallow clone: the history has nothing to score. Set `fetch-depth: 0` on actions/checkout.');
@@ -84,12 +103,20 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd() 
     core.info('Badge is byte-identical — skipping the commit.');
   } else {
     writeFileSync(target, content);
-    const branch = commitAndPush({
-      cwd,
-      readme,
-      message: commitMessage(result.displayed, result.attributed),
+    const { owner, repo } = readRepository();
+    const message = commitMessage(result.displayed, result.attributed);
+    const { base, branch } = commitToBadgeBranch({ cwd, readme, message });
+    const number = await ensurePullRequest({
+      owner,
+      repo,
+      base,
+      branch,
+      title: message.split('\n')[0],
+      token,
+      apiUrl: process.env.GITHUB_API_URL,
+      fetchImpl,
     });
-    commitState = `committed to ${branch}`;
+    commitState = `pull request #${number} from ${branch}`;
   }
 
   await core.summary.addRaw(buildSummary({ result, badge, readme, replaced, commitState })).write();

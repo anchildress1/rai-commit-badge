@@ -84,6 +84,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -95,17 +96,47 @@ jobs:
 > [!IMPORTANT]
 > `fetch-depth: 0` is required. A shallow clone has no history to score, and the action fails rather than publishing a wrong number.
 
+> [!IMPORTANT]
+> Turn on **Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to create and approve pull requests"**, or the action cannot open its pull request.
+
+The badge arrives as a pull request on `rai-badge--branches--<base>`, rebuilt from the base each run, so it always holds one commit.
+
 ---
 
 ## Configuration ⚙️
 
 ### Inputs
 
-| Input    | Default     | Description                                                                                                                     |
-| -------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `since`  | auto        | Window start as `YYYY-MM-DD`. Auto-detects your earliest RAI footer. Set it when a stray old footer opens the window too early. |
-| `readme` | `README.md` | Path to the file holding the markers.                                                                                           |
-| `style`  | `flat`      | Valid shields style: `flat`, `flat-square`, `plastic`, `for-the-badge`, `social`.                                               |
+| Input    | Default               | Description                                                                                                                     |
+| -------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `since`  | auto                  | Window start as `YYYY-MM-DD`. Auto-detects your earliest RAI footer. Set it when a stray old footer opens the window too early. |
+| `readme` | `README.md`           | Path to the file holding the markers.                                                                                           |
+| `style`  | `flat`                | Valid shields style: `flat`, `flat-square`, `plastic`, `for-the-badge`, `social`.                                               |
+| `token`  | `${{ github.token }}` | Token used to open the badge pull request. See [Which token](#which-token).                                                     |
+
+### Which token
+
+The default `GITHUB_TOKEN` covers most repos: grant `contents: write` and `pull-requests: write` at the job level and pass nothing.
+
+This input authorises the pull-request API call only — `actions/checkout` supplies the credential that pushes the branch.
+
+Use a PAT or GitHub App token when either applies:
+
+- **You want checks to start on their own.** A pull request opened with `GITHUB_TOKEN` [creates its workflow runs in an approval-required state](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow): the PR shows a banner, and anyone with write access clicks **Approve workflows to run**. A PAT skips that click.
+- **An organisation that disables Actions from creating pull requests.** That setting overrides every repo, and `GITHUB_TOKEN` gets a 403.
+
+The input needs only **Pull requests: Read and write**. Pass the same token to `actions/checkout` so pushes carry it too, and it needs **Contents: Read and write** as well:
+
+```yaml
+- uses: actions/checkout@v7
+  with:
+    fetch-depth: 0
+    token: ${{ secrets.RAI_BADGE_TOKEN }}
+
+- uses: anchildress1/rai-commit-badge@v1
+  with:
+    token: ${{ secrets.RAI_BADGE_TOKEN }}
+```
 
 ### Output
 
@@ -138,7 +169,7 @@ Each footer carries a weight derived from what it declares:
 | Footer                | Declares             | Weight |
 | --------------------- | -------------------- | ------ |
 | `Authored-by`         | Zero AI              | 0.00   |
-| `Commit-generated-by` | Trivial AI, no code  | 0.05   |
+| `Commit-generated-by` | Trivial AI           | 0.05   |
 | `Assisted-by`         | AI helped, human led | 0.25   |
 | `Co-authored-by`      | Roughly 50/50        | 0.50   |
 | `Generated-by`        | Majority AI          | 0.90   |
@@ -204,10 +235,11 @@ A new score produces a new URL, so the image refreshes on its own.
 
 ## Security 🔒
 
-- Runs entirely on `GITHUB_TOKEN`. No secrets, no PAT, no third-party service.
-- Needs `contents: write` to commit the updated badge line. Grant it at the job level.
+- Runs on the default `GITHUB_TOKEN` and talks to no third-party service. See [Which token](#which-token).
+- Needs `contents: write` to push the badge branch and `pull-requests: write` to open the PR. Grant both at the job level.
+- Writes only to `rai-badge--branches--<base>`, so your base branch keeps its required checks.
 - Reads git history and writes one thing: the marked block in the file you point `readme` at.
-- Its commits carry RAI footers, so your own commitlint rules stay satisfied.
+- Its commits carry a RAI attribution footer. The human who merges the pull request signs off on it.
 
 ---
 
