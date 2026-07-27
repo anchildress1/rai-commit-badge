@@ -19,10 +19,12 @@ export function score(commits, { since } = {}) {
     return { date: commit.date, weight, groups, churn: countChurn(commit.files) };
   });
 
-  const attributedDates = scored.filter((c) => c.weight !== null).map((c) => c.date);
-  // min rather than sort: one pass, no mutation of the mapped array, and no
-  // reliance on the default comparator to order ISO dates
-  const earliest = attributedDates.length ? attributedDates.reduce((min, date) => (date < min ? date : min)) : null;
+  // a plain scan rather than sort or reduce: one pass, no mutation, no default
+  // comparator, and the empty case falls out as null without a guard
+  let earliest = null;
+  for (const { weight, date } of scored) {
+    if (weight !== null && (earliest === null || date < earliest)) earliest = date;
+  }
   const windowStart = since ?? earliest;
 
   if (windowStart === null) {
