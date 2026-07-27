@@ -97,9 +97,9 @@ jobs:
 > `fetch-depth: 0` is required. A shallow clone has no history to score, and the action fails rather than publishing a wrong number.
 
 > [!IMPORTANT]
-> **Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to create and approve pull requests"** has to be on, or the action cannot open its pull request.
+> Turn on **Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to create and approve pull requests"**, or the action cannot open its pull request.
 
-The badge lands on `rai-badge--branches--<base>` and arrives as a pull request, the way release-please does it. Your branch protection and required checks stay in force, and the branch is cut fresh from the base on every run, so the PR always holds exactly one commit.
+The badge arrives as a pull request on `rai-badge--branches--<base>`, rebuilt from the base each run, so it always holds one commit.
 
 ---
 
@@ -112,7 +112,24 @@ The badge lands on `rai-badge--branches--<base>` and arrives as a pull request, 
 | `since`  | auto                  | Window start as `YYYY-MM-DD`. Auto-detects your earliest RAI footer. Set it when a stray old footer opens the window too early. |
 | `readme` | `README.md`           | Path to the file holding the markers.                                                                                           |
 | `style`  | `flat`                | Valid shields style: `flat`, `flat-square`, `plastic`, `for-the-badge`, `social`.                                               |
-| `token`  | `${{ github.token }}` | Token used to open the badge pull request. The default `GITHUB_TOKEN` is enough.                                                |
+| `token`  | `${{ github.token }}` | Token used to open the badge pull request. See [Which token](#which-token).                                                     |
+
+### Which token
+
+The default `GITHUB_TOKEN` covers most repos: grant `contents: write` and `pull-requests: write` at the job level and pass nothing.
+
+Use a PAT or GitHub App token when either applies:
+
+- **Required status checks on the base branch.** Pull requests opened with `GITHUB_TOKEN` [do not trigger `pull_request` workflows](https://docs.github.com/actions/security-for-github-actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow), so required checks stay pending. A PAT acts as a user and runs them.
+- **An organisation that disables Actions from creating pull requests.** That setting overrides every repo, and `GITHUB_TOKEN` gets a 403.
+
+A fine-grained PAT needs **Contents: Read and write** and **Pull requests: Read and write**:
+
+```yaml
+- uses: anchildress1/rai-commit-badge@v1
+  with:
+    token: ${{ secrets.RAI_BADGE_TOKEN }}
+```
 
 ### Output
 
@@ -211,11 +228,11 @@ A new score produces a new URL, so the image refreshes on its own.
 
 ## Security 🔒
 
-- Runs entirely on `GITHUB_TOKEN`. No secrets, no PAT, no third-party service.
+- Runs on the default `GITHUB_TOKEN` and talks to no third-party service. See [Which token](#which-token).
 - Needs `contents: write` to push the badge branch and `pull-requests: write` to open the PR. Grant both at the job level.
-- Writes only to `rai-badge--branches--<base>`. Your base branch takes no direct push, so its required checks stay in charge.
+- Writes only to `rai-badge--branches--<base>`, so your base branch keeps its required checks.
 - Reads git history and writes one thing: the marked block in the file you point `readme` at.
-- Its commits carry RAI footers, so your own commitlint rules stay satisfied.
+- Its commits carry a RAI attribution footer. The human who merges the pull request signs off on it.
 
 ---
 
