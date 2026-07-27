@@ -3,7 +3,6 @@
   "packages": {
     ".": {
       "release-type": "node",
-      "package-name": "rai-commit-badge",
       "changelog-path": "CHANGELOG.md"
     }
   },
