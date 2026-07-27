@@ -64,7 +64,10 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd() 
   let original = null;
   try {
     original = readFileSync(target, 'utf8');
-  } catch {
+  } catch (error) {
+    // only a missing file is a skip; a permission or IO failure must not read
+    // as success with the badge quietly left alone
+    if (error.code !== 'ENOENT') throw error;
     core.warning(`${readme} not found — nothing to rewrite.`);
   }
 
