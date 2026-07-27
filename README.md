@@ -1,9 +1,9 @@
 <div align="center">
 
 <img
-  src="https://raw.githubusercontent.com/anchildress1/rai-commit-badge/main/docs/assets/rai-logo.png"
-  alt="RAI logo — a commit graph inside curly braces"
-  width="140"
+  src="https://repository-images.githubusercontent.com/1312856781/02b5aa2c-1ac4-4a0c-8f53-8b374903c555"
+  alt="rai-commit-badge — your git history already knows how much AI wrote"
+  width="720"
 />
 
 # rai-commit-badge
