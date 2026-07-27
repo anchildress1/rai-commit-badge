@@ -169,7 +169,7 @@ Each footer carries a weight derived from what it declares:
 | Footer                | Declares             | Weight |
 | --------------------- | -------------------- | ------ |
 | `Authored-by`         | Zero AI              | 0.00   |
-| `Commit-generated-by` | Trivial AI, no code  | 0.05   |
+| `Commit-generated-by` | Trivial AI           | 0.05   |
 | `Assisted-by`         | AI helped, human led | 0.25   |
 | `Co-authored-by`      | Roughly 50/50        | 0.50   |
 | `Generated-by`        | Majority AI          | 0.90   |
