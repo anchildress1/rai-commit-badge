@@ -19,7 +19,7 @@ inputs:
     required: false
     default: flat
   token:
-    description: Token used to open the badge pull request. Needs contents:write and pull-requests:write.
+    description: Token used to open the badge pull request. Needs pull-requests:write; the branch push uses checkout's credential.
     required: false
     default: ${{ github.token }}
 

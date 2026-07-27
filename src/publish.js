@@ -116,12 +116,26 @@ export async function ensurePullRequest({
   };
   const head = encodeURIComponent(`${owner}:${branch}`);
 
+  const json = { ...headers, 'content-type': 'application/json' };
+
   const open = await request(fetchImpl, `${apiUrl}/repos/${owner}/${repo}/pulls?state=open&head=${head}`, { headers });
-  if (open?.length) return open[0].number;
+  if (open?.length) {
+    const [existing] = open;
+    // the branch was rebuilt with a fresh score, so a title left over from the
+    // previous run advertises a percentage the diff no longer contains
+    if (existing.title !== title) {
+      await request(fetchImpl, `${apiUrl}/repos/${owner}/${repo}/pulls/${existing.number}`, {
+        method: 'PATCH',
+        headers: json,
+        body: JSON.stringify({ title }),
+      });
+    }
+    return existing.number;
+  }
 
   const created = await request(fetchImpl, `${apiUrl}/repos/${owner}/${repo}/pulls`, {
     method: 'POST',
-    headers: { ...headers, 'content-type': 'application/json' },
+    headers: json,
     body: JSON.stringify({ title, head: branch, base, body: PR_BODY }),
   });
   return created.number;

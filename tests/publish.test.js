@@ -125,11 +125,23 @@ describe('ensurePullRequest', () => {
   }
 
   it('reuses a pull request that is already open', async () => {
-    const fetchImpl = fakeFetch([{ body: [{ number: 4 }] }]);
+    const fetchImpl = fakeFetch([{ body: [{ number: 4, title: ARGS.title }] }]);
 
     await expect(ensurePullRequest({ ...ARGS, fetchImpl })).resolves.toBe(4);
     expect(fetchImpl.calls).toHaveLength(1);
     expect(fetchImpl.calls[0].url).toContain('head=anchildress1%3Arai-badge--branches--main');
+  });
+
+  it('retitles an open pull request left on a stale score', async () => {
+    const fetchImpl = fakeFetch([
+      { body: [{ number: 4, title: 'docs: update AI attribution badge to 11%' }] },
+      { body: { number: 4 } },
+    ]);
+
+    await expect(ensurePullRequest({ ...ARGS, fetchImpl })).resolves.toBe(4);
+    expect(fetchImpl.calls[1].method).toBe('PATCH');
+    expect(fetchImpl.calls[1].url).toMatch(/\/pulls\/4$/);
+    expect(JSON.parse(fetchImpl.calls[1].body)).toEqual({ title: ARGS.title });
   });
 
   it('opens one when none is open', async () => {

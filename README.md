@@ -118,14 +118,21 @@ The badge arrives as a pull request on `rai-badge--branches--<base>`, rebuilt fr
 
 The default `GITHUB_TOKEN` covers most repos: grant `contents: write` and `pull-requests: write` at the job level and pass nothing.
 
+This input authorises the pull-request API call only — `actions/checkout` supplies the credential that pushes the branch.
+
 Use a PAT or GitHub App token when either applies:
 
-- **Required status checks on the base branch.** Pull requests opened with `GITHUB_TOKEN` [do not trigger `pull_request` workflows](https://docs.github.com/actions/security-for-github-actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow), so required checks stay pending. A PAT acts as a user and runs them.
+- **You want checks to start on their own.** A pull request opened with `GITHUB_TOKEN` [creates its workflow runs in an approval-required state](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow): the PR shows a banner, and anyone with write access clicks **Approve workflows to run**. A PAT skips that click.
 - **An organisation that disables Actions from creating pull requests.** That setting overrides every repo, and `GITHUB_TOKEN` gets a 403.
 
-A fine-grained PAT needs **Contents: Read and write** and **Pull requests: Read and write**:
+The input needs only **Pull requests: Read and write**. Pass the same token to `actions/checkout` so pushes carry it too, and it needs **Contents: Read and write** as well:
 
 ```yaml
+- uses: actions/checkout@v7
+  with:
+    fetch-depth: 0
+    token: ${{ secrets.RAI_BADGE_TOKEN }}
+
 - uses: anchildress1/rai-commit-badge@v1
   with:
     token: ${{ secrets.RAI_BADGE_TOKEN }}
