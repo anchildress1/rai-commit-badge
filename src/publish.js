@@ -13,22 +13,18 @@ const PR_BODY = [
 /**
  * Build the commit message for a badge update.
  *
- * `Commit-generated-by` rather than `Generated-by`: the change is a machine-
- * written doc line, and scoring it any higher would let the action inflate the
- * number it publishes.
- *
- * No `Signed-off-by`: a bot signing off on itself attests to nothing. The human
- * merging the pull request is the sign-off.
+ * Subject only. Every RAI footer declares AI involvement and this action runs
+ * none, and a bot cannot sign off on itself.
  *
  * @param {number} displayed the displayed integer percentage
  * @param {boolean} attributed whether any footer was found
- * @returns {string} a commit message carrying a RAI footer
+ * @returns {string} the commit subject
  */
 export function commitMessage(displayed, attributed) {
   const subject = attributed
     ? `docs: update AI attribution badge to ${displayed}%`
     : 'docs: update AI attribution badge';
-  return [subject, '', 'Commit-generated-by: rai-commit-badge <noreply@github.com>', ''].join('\n');
+  return `${subject}\n`;
 }
 
 /**

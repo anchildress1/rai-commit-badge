@@ -27,14 +27,22 @@ function clonePair() {
 }
 
 describe('commitMessage', () => {
-  it('carries a RAI footer', () => {
-    const message = commitMessage(66, true);
-    expect(message).toMatch(/^docs: update AI attribution badge to 66%$/m);
-    expect(message).toMatch(/^Commit-generated-by: rai-commit-badge <noreply@github\.com>$/m);
+  it('states the score in the subject', () => {
+    expect(commitMessage(66, true)).toMatch(/^docs: update AI attribution badge to 66%$/m);
   });
 
-  it('leaves the sign-off to the human who merges', () => {
-    expect(commitMessage(66, true)).not.toMatch(/^Signed-off-by:/m);
+  it('claims no AI attribution, because none ran', () => {
+    const message = commitMessage(66, true);
+    for (const footer of [
+      'Authored-by',
+      'Commit-generated-by',
+      'Assisted-by',
+      'Co-authored-by',
+      'Generated-by',
+      'Signed-off-by',
+    ]) {
+      expect(message).not.toMatch(new RegExp(`^${footer}:`, 'im'));
+    }
   });
 
   it('drops the number when nothing is attributed', () => {

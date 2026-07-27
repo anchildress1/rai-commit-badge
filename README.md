@@ -239,7 +239,6 @@ A new score produces a new URL, so the image refreshes on its own.
 - Needs `contents: write` to push the badge branch and `pull-requests: write` to open the PR. Grant both at the job level.
 - Writes only to `rai-badge--branches--<base>`, so your base branch keeps its required checks.
 - Reads git history and writes one thing: the marked block in the file you point `readme` at.
-- Its commits carry a RAI attribution footer. The human who merges the pull request signs off on it.
 
 ---
 
