@@ -1,7 +1,7 @@
 <div align="center">
 
 <img
-  src="https://repository-images.githubusercontent.com/1312856781/02b5aa2c-1ac4-4a0c-8f53-8b374903c555"
+  src="https://repository-images.githubusercontent.com/1312856781/4ef0f801-6ea3-4a1c-b898-d4b1e8f5d671"
   alt="rai-commit-badge — your git history already knows how much AI wrote"
   width="720"
 />
@@ -16,7 +16,7 @@ _A GitHub Action that scores [RAI attribution footers](https://github.com/anchil
 
 [![GitHub Issues](https://img.shields.io/github/issues/anchildress1/rai-commit-badge?style=for-the-badge&color=34A853&cacheSeconds=3600)](https://github.com/anchildress1/rai-commit-badge/issues) [![Release](https://img.shields.io/github/v/release/anchildress1/rai-commit-badge?style=for-the-badge&color=0875AE)](https://github.com/anchildress1/rai-commit-badge/releases) [![License: Polyform Shield License 1.0.0](https://img.shields.io/badge/license-Polyform%20Shield%20License%201.0.0-orange?style=for-the-badge)](LICENSE)
 
-[![Sonar Tech Debt](https://img.shields.io/sonar/alert_status/anchildress1_rai-commit-badge?server=https%3A%2F%2Fsonarcloud.io&style=for-the-badge&logo=sonarqubecloud)](https://sonarcloud.io/summary/new_code?id=anchildress1_rai-commit-badge) [![Bugs](https://img.shields.io/sonar/bugs/anchildress1_rai-commit-badge?server=https%3A%2F%2Fsonarcloud.io&style=for-the-badge&logo=sonarqubecloud)](https://sonarcloud.io/summary/new_code?id=anchildress1_rai-commit-badge) [![Code Smells](https://img.shields.io/sonar/code_smells/anchildress1_rai-commit-badge?server=https%3A%2F%2Fsonarcloud.io&label=code_smells&style=for-the-badge&logo=sonarqubecloud)](https://sonarcloud.io/summary/new_code?id=anchildress1_rai-commit-badge) [![Coverage](https://img.shields.io/sonar/coverage/anchildress1_rai-commit-badge?server=https%3A%2F%2Fsonarcloud.io&style=for-the-badge&logo=sonarqubecloud)](https://sonarcloud.io/summary/new_code?id=anchildress1_rai-commit-badge)
+[![Sonar Tech Debt](https://img.shields.io/sonar/alert_status/anchildress1_rai-commit-badge?server=https%3A%2F%2Fsonarcloud.io&style=for-the-badge&logo=sonarqubecloud)](https://sonarcloud.io/summary/new_code?id=anchildress1_rai-commit-badge) [![Coverage](https://img.shields.io/sonar/coverage/anchildress1_rai-commit-badge?server=https%3A%2F%2Fsonarcloud.io&style=for-the-badge&logo=sonarqubecloud)](https://sonarcloud.io/summary/new_code?id=anchildress1_rai-commit-badge) [![Bugs](https://img.shields.io/sonar/bugs/anchildress1_rai-commit-badge?server=https%3A%2F%2Fsonarcloud.io&style=for-the-badge&logo=sonarqubecloud)](https://sonarcloud.io/summary/new_code?id=anchildress1_rai-commit-badge) [![Code Smells](https://img.shields.io/sonar/code_smells/anchildress1_rai-commit-badge?server=https%3A%2F%2Fsonarcloud.io&label=code_smells&style=for-the-badge&logo=sonarqubecloud)](https://sonarcloud.io/summary/new_code?id=anchildress1_rai-commit-badge)
 
 [![CI](https://img.shields.io/github/actions/workflow/status/anchildress1/rai-commit-badge/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=fff&label=tests)](https://github.com/anchildress1/rai-commit-badge/actions/workflows/ci.yml) [![check-dist](https://img.shields.io/github/actions/workflow/status/anchildress1/rai-commit-badge/check-dist.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=fff&label=dist)](https://github.com/anchildress1/rai-commit-badge/actions/workflows/check-dist.yml)
 
