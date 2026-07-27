@@ -1,0 +1,27 @@
+pre-commit:
+  commands:
+    format:
+      glob: '*.{js,json,md,yml}'
+      run: npx prettier --write {staged_files}
+      stage_fixed: true
+    lint:
+      glob: '*.js'
+      run: npx eslint --fix --no-warn-ignored {staged_files}
+      stage_fixed: true
+    test:
+      glob: '{src,tests}/**/*.js'
+      run: npm test
+    update-npm-lock:
+      glob: 'package.json'
+      # installing over an existing tree drops optional peers the current
+      # platform does not need — @emnapi/* vanishes on macOS and npm ci then
+      # cannot resolve the wasm fallback on Linux. --package-lock-only repairs
+      # them but re-nests them under the binding package, so only a fully clean
+      # regeneration reproduces the tree CI expects.
+      run: rm -rf node_modules package-lock.json && npm install --ignore-scripts
+      stage_fixed: true
+
+commit-msg:
+  commands:
+    commitlint:
+      run: npx --no-install commitlint --edit {1}

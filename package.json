@@ -1,0 +1,58 @@
+{
+  "name": "rai-commit-badge",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "GitHub Action that scores RAI attribution footers and publishes a shields.io badge",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{js,json,md,yml}\"",
+    "format:check": "prettier --check \"**/*.{js,json,md,yml}\"",
+    "build": "ncc build src/index.js -o dist --minify",
+    "prepare": "npx lefthook install"
+  },
+  "keywords": [
+    "github-action",
+    "rai",
+    "ai-attribution",
+    "badge",
+    "shields"
+  ],
+  "author": "Ashley Childress",
+  "license": "LicenseRef-PolyForm-Shield-1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anchildress1/rai-commit-badge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/anchildress1/rai-commit-badge/issues"
+  },
+  "homepage": "https://github.com/anchildress1/rai-commit-badge#readme",
+  "dependencies": {
+    "@actions/core": "^3.0.1",
+    "ignore": "^7.0.6"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.1",
+    "@commitlint/config-conventional": "^21.2.0",
+    "@eslint/js": "^10.0.1",
+    "@vercel/ncc": "^0.44.1",
+    "@vitest/coverage-v8": "^4.1.10",
+    "commitlint-plugin-rai": "^1.0.1",
+    "eslint": "^10.8.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.7.0",
+    "lefthook": "^2.1.10",
+    "prettier": "^3.9.6",
+    "vitest": "^4.1.10"
+  },
+  "volta": {
+    "node": "24.13.0"
+  }
+}
