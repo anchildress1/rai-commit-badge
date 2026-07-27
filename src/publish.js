@@ -114,11 +114,15 @@ export async function ensurePullRequest({
     authorization: `Bearer ${token}`,
     'x-github-api-version': '2022-11-28',
   };
-  const head = encodeURIComponent(`${owner}:${branch}`);
+  const query = new URLSearchParams({
+    state: 'open',
+    head: `${owner}:${branch}`,
+    base,
+  });
 
   const json = { ...headers, 'content-type': 'application/json' };
 
-  const open = await request(fetchImpl, `${apiUrl}/repos/${owner}/${repo}/pulls?state=open&head=${head}`, { headers });
+  const open = await request(fetchImpl, `${apiUrl}/repos/${owner}/${repo}/pulls?${query}`, { headers });
   if (open?.length) {
     const [existing] = open;
     // the branch was rebuilt with a fresh score, so a title left over from the

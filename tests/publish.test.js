@@ -129,7 +129,9 @@ describe('ensurePullRequest', () => {
 
     await expect(ensurePullRequest({ ...ARGS, fetchImpl })).resolves.toBe(4);
     expect(fetchImpl.calls).toHaveLength(1);
-    expect(fetchImpl.calls[0].url).toContain('head=anchildress1%3Arai-badge--branches--main');
+    const query = new URL(fetchImpl.calls[0].url).searchParams;
+    expect(query.get('head')).toBe('anchildress1:rai-badge--branches--main');
+    expect(query.get('base')).toBe('main');
   });
 
   it('retitles an open pull request left on a stale score', async () => {
