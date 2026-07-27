@@ -25,3 +25,5 @@ jobs:
           fetch-depth: 0
 
       - uses: ./
+        with:
+          style: for-the-badge
