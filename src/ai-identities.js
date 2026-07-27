@@ -65,7 +65,14 @@ export const AI_NAMES = [
 // Vendor domains — the weaker signal, and the reason the list is short. Tools
 // invent a fresh address most runs: Verdent alone has signed from twelve domains
 // including `anthropic.com`, so a domain can name the wrong vendor and still be
-// AI. Only domains no human sends commit mail from belong here.
+// AI. It carries the trailers no name reaches, such as
+// `Nameless <noreply@anthropic.com>`.
+//
+// The tradeoff is deliberate: some of these are vendor corporate domains, so an
+// employee of that vendor co-authoring by hand reads as a tool. That is rarer
+// than an unrecognised tool name on a vendor address, which is what this catches.
+// Keep the list to domains that exist to serve a tool; a general host such as
+// `gmail.com` or `users.noreply.github.com` would misread everyone.
 export const AI_EMAIL_DOMAINS = [
   'aider.chat',
   'all-hands.dev',
