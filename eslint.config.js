@@ -3,7 +3,7 @@ import prettierConfig from 'eslint-config-prettier';
 import globals from 'globals';
 
 export default [
-  { ignores: ['dist/', 'coverage/', 'reports/'] },
+  { ignores: ['dist/', 'coverage/', 'reports/', '**/CHANGELOG.md'] },
   eslint.configs.recommended,
   {
     files: ['**/*.js'],
