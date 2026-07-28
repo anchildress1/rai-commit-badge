@@ -51,9 +51,14 @@ export function commitToBadgeBranch({ cwd, readme, message, run = git }) {
   const base = run(['symbolic-ref', '--short', 'HEAD'], cwd);
   const branch = badgeBranchName(base);
 
+  // an earlier step in the same job (or a merge landing mid-run) can leave this
+  // checkout behind origin's tip; cutting from a freshly fetched ref keeps the PR
+  // from reopening as already out of date with its base
+  run(['fetch', 'origin', base], cwd);
+
   run(['config', 'user.name', COMMITTER_NAME], cwd);
   run(['config', 'user.email', COMMITTER_EMAIL], cwd);
-  run(['checkout', '-B', branch], cwd);
+  run(['checkout', '-B', branch, `origin/${base}`], cwd);
   run(['add', '--', readme], cwd);
   run(['commit', '--only', '-m', message, '--', readme], cwd);
   // the branch is machine-owned and rebuilt from base every run, so the push

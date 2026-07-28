@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import * as core from '@actions/core';
-import { isShallow, readCommits } from './git.js';
+import { isShallow, readCommits, syncWithOrigin } from './git.js';
 import { commitMessage, commitToBadgeBranch, ensurePullRequest } from './publish.js';
 import { badgeMarkdown, replaceMarkers, STYLES } from './render.js';
 import { score } from './score.js';
@@ -75,6 +75,8 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd(),
   if (isShallow(cwd)) {
     throw new Error('Shallow clone: the history has nothing to score. Set `fetch-depth: 0` on actions/checkout.');
   }
+
+  syncWithOrigin(cwd);
 
   const result = score(readCommits(cwd), { since });
   const badge = badgeMarkdown(result, style);

@@ -30,6 +30,23 @@ export function isShallow(cwd) {
 }
 
 /**
+ * Fast-forward the checked-out branch to match its freshly fetched upstream tip.
+ *
+ * An earlier step in the same job — an autoformat commit, a merge landing mid-run —
+ * can leave this checkout behind origin's true tip. Scoring or branching off it would
+ * silently miss that history and reopen a PR that's already out of date with its base.
+ *
+ * @param {string} cwd repository directory
+ * @returns {string} the branch that was synced
+ */
+export function syncWithOrigin(cwd) {
+  const branch = git(['symbolic-ref', '--short', 'HEAD'], cwd);
+  git(['fetch', 'origin', branch], cwd);
+  git(['reset', '--hard', `origin/${branch}`], cwd);
+  return branch;
+}
+
+/**
  * Resolve a rename path to its post-rename form.
  *
  * `--numstat` renders renames as `old => new` or `pre/{old => new}/post`.

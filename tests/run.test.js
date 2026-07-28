@@ -129,15 +129,19 @@ describe('run', () => {
   });
 
   it('skips the commit when the badge is byte-identical', async () => {
-    const { remote, local } = repoWithRemote();
-    await run({ cwd: local, fetchImpl: fakeFetch() });
-    const head = git(['rev-parse', BADGE_BRANCH], remote);
+    // capture the exact markdown a fresh score produces, then seed a second repo's
+    // base with it already committed — as if the badge PR had already been merged
+    const { local: scratch } = repoWithRemote();
+    await run({ cwd: scratch, fetchImpl: fakeFetch() });
+    const badged = readFileSync(join(scratch, 'README.md'), 'utf8');
 
+    const { remote, local } = repoWithRemote(badged);
     core.summary.emptyBuffer();
     const fetchImpl = fakeFetch();
+
     await run({ cwd: local, fetchImpl });
 
-    expect(git(['rev-parse', BADGE_BRANCH], remote)).toBe(head);
+    expect(() => git(['rev-parse', BADGE_BRANCH], remote)).toThrow();
     expect(fetchImpl.calls).toHaveLength(0);
     expect(summary()).toContain('| Badge | unchanged |');
   });
