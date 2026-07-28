@@ -159,6 +159,21 @@ export function parseIdentity(value) {
 }
 
 /**
+ * Decide whether an identity belongs to a known non-AI bot.
+ *
+ * Automation — release-please, dependabot, this action's own committer — carries
+ * no RAI footer of its own, so its commits score as unattributed churn if scored
+ * at all. This is how a caller identifies them for exclusion instead.
+ *
+ * @param {string} value the identity, as `Name <email>`
+ * @returns {boolean} true when the identity is on the bot denylist
+ */
+export function isKnownBotIdentity(value) {
+  const { raw } = parseIdentity(value);
+  return NON_AI_MATCHERS.some((m) => m.test(raw));
+}
+
+/**
  * Decide whether a footer value names a known AI tool.
  *
  * Precedence: the non-AI denylist, then tool names, then vendor domains.

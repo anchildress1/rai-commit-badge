@@ -23,6 +23,7 @@ export function buildSummary({ result, badge, readme, replaced, commitState }) {
       `| Commits in window | ${result.windowCommits} of ${result.commits} |`,
       `| Attributed commits | ${result.attributedCommits} (${pct(result.attributedCommits, result.windowCommits)}) |`,
       `| Squashed commits | ${result.squashedCommits} — footer weights averaged |`,
+      `| Bot commits excluded | ${result.botCommits} — release-please, this action, and friends |`,
       `| Scored churn | ${result.churn} lines |`
     );
   } else {

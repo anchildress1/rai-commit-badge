@@ -1,3 +1,4 @@
+import { isKnownBotIdentity } from './ai-identities.js';
 import { countChurn } from './churn.js';
 import { resolveWeight } from './groups.js';
 
@@ -6,15 +7,20 @@ import { resolveWeight } from './groups.js';
  *
  * The window opens at the earliest attributed commit, or at `since` when given.
  * Unattributed commits inside the window score 0 and stay in the denominator.
+ * Commits authored by a known bot — release-please, this action's own committer —
+ * carry no RAI footer of their own and are dropped from both sides of the ratio,
+ * the same way an excluded path is: automation isn't the thing being measured.
  *
- * @param {Array<{sha: string, date: string, message: string, files: Array}>} commits
+ * @param {Array<{sha: string, date: string, author: string, message: string, files: Array}>} commits
  * @param {{since?: string}} [options] `since` as `YYYY-MM-DD`
  * @returns {{attributed: boolean, percent: number, displayed: number, windowStart: string | null,
- *   commits: number, windowCommits: number, attributedCommits: number, squashedCommits: number,
- *   churn: number}}
+ *   commits: number, botCommits: number, windowCommits: number, attributedCommits: number,
+ *   squashedCommits: number, churn: number}}
  */
 export function score(commits, { since } = {}) {
-  const scored = commits.map((commit) => {
+  const attributable = commits.filter((commit) => !isKnownBotIdentity(commit.author));
+  const botCommits = commits.length - attributable.length;
+  const scored = attributable.map((commit) => {
     const { weight, groups } = resolveWeight(commit.message);
     return { date: commit.date, weight, groups, churn: countChurn(commit.files) };
   });
@@ -34,6 +40,7 @@ export function score(commits, { since } = {}) {
       displayed: 0,
       windowStart: null,
       commits: scored.length,
+      botCommits,
       windowCommits: 0,
       attributedCommits: 0,
       squashedCommits: 0,
@@ -52,6 +59,7 @@ export function score(commits, { since } = {}) {
     displayed: Math.round(percent),
     windowStart,
     commits: scored.length,
+    botCommits,
     windowCommits: window.length,
     attributedCommits: window.filter((c) => c.weight !== null).length,
     squashedCommits: window.filter((c) => c.groups > 1).length,

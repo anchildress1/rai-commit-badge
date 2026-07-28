@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isKnownAiIdentity, parseIdentity } from '../src/ai-identities.js';
+import { isKnownAiIdentity, isKnownBotIdentity, parseIdentity } from '../src/ai-identities.js';
 
 describe('parseIdentity', () => {
   it('splits an addressed identity', () => {
@@ -65,4 +65,21 @@ describe('isKnownAiIdentity', () => {
   it('does not read tool names from the address', () => {
     expect(isKnownAiIdentity('Jane Doe <jane@claude.example.com>')).toBe(false);
   });
+});
+
+describe('isKnownBotIdentity', () => {
+  it.each([
+    'github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>',
+    'dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>',
+    'release-please[bot] <example@example.com>',
+  ])('matches %s', (value) => {
+    expect(isKnownBotIdentity(value)).toBe(true);
+  });
+
+  it.each(['Jane Doe <jane@example.com>', 'Claude Opus 5 <noreply@anthropic.com>', 'Ashley Childress <a@example.com>'])(
+    'rejects %s',
+    (value) => {
+      expect(isKnownBotIdentity(value)).toBe(false);
+    }
+  );
 });

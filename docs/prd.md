@@ -179,9 +179,11 @@ CI fetches rai-lint's `rules.py` and asserts the footer key sets match.
 
 ## Phasing
 
-**Phase 1** — scoring, badge, Marketplace listing, squash warning.
+**Phase 1** — scoring, badge, Marketplace listing, squash warning. Shipped as v1.0.0.
 
-**Phase 2** — scope undefined. Agreed requirement: "assume human" needs to get smarter, starting with bot-authored commits.
+**Phase 2** — scope undefined. Agreed requirement: "assume human" needs to get smarter.
+
+- Bot-authored commits (release-please, this action's own committer) are excluded from both sides of the ratio — done.
 
 ## Success criteria
 
