@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import * as core from '@actions/core';
-import { isShallow, readCommits } from './git.js';
+import { isShallow, readCommits, syncWithOrigin } from './git.js';
 import { commitMessage, commitToBadgeBranch, ensurePullRequest } from './publish.js';
 import { badgeMarkdown, replaceMarkers, STYLES } from './render.js';
 import { score } from './score.js';
@@ -63,6 +63,28 @@ function readRepository() {
 }
 
 /**
+ * Sync with origin and resolve the branch to score and publish against.
+ *
+ * A detached HEAD (a pinned tag/SHA, or a pull_request event's merge commit) has no
+ * branch to sync against; GITHUB_BASE_REF carries the PR's real base in that case.
+ *
+ * @param {string} cwd repository directory
+ * @returns {string | null} the resolved base branch, or null when none could be found
+ */
+function resolveBase(cwd) {
+  const synced = syncWithOrigin(cwd);
+  if (synced !== null) return synced;
+
+  const base = process.env.GITHUB_BASE_REF || process.env.GITHUB_REF_NAME || null;
+  core.warning(
+    base
+      ? `HEAD is detached — scoring the checkout as-is; resolved base "${base}" from the Actions environment.`
+      : 'HEAD is detached and no base branch could be resolved from the Actions environment — scoring the checkout as-is.'
+  );
+  return base;
+}
+
+/**
  * Score the repository, rewrite the badge, and publish the change.
  *
  * @param {{cwd?: string, fetchImpl?: typeof fetch}} [options] repository directory and fetch, injected for tests
@@ -75,6 +97,8 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd(),
   if (isShallow(cwd)) {
     throw new Error('Shallow clone: the history has nothing to score. Set `fetch-depth: 0` on actions/checkout.');
   }
+
+  const base = resolveBase(cwd);
 
   const result = score(readCommits(cwd), { since });
   const badge = badgeMarkdown(result, style);
@@ -102,10 +126,13 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd(),
     commitState = 'unchanged';
     core.info('Badge is byte-identical — skipping the commit.');
   } else {
+    if (base === null) {
+      throw new Error('No base branch resolved — cannot open a pull request without one to target.');
+    }
     writeFileSync(target, content);
     const { owner, repo } = readRepository();
     const message = commitMessage(result.displayed, result.attributed);
-    const { base, branch } = commitToBadgeBranch({ cwd, readme, message });
+    const { branch } = commitToBadgeBranch({ cwd, readme, message, base });
     const number = await ensurePullRequest({
       owner,
       repo,

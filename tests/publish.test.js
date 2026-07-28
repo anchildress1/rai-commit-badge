@@ -57,6 +57,7 @@ describe('commitToBadgeBranch', () => {
       cwd: local,
       readme: 'README.md',
       message: commitMessage(42, true),
+      base: 'main',
     });
 
     expect(base).toBe('main');
@@ -73,7 +74,12 @@ describe('commitToBadgeBranch', () => {
     run(['add', 'unrelated.txt'], local);
     writeFileSync(join(local, 'README.md'), 'badged\n');
 
-    const { branch } = commitToBadgeBranch({ cwd: local, readme: 'README.md', message: commitMessage(42, true) });
+    const { branch } = commitToBadgeBranch({
+      cwd: local,
+      readme: 'README.md',
+      message: commitMessage(42, true),
+      base: 'main',
+    });
 
     expect(git(['show', '--name-only', '--format=', branch], remote)).toBe('README.md');
     expect(git(['diff', '--cached', '--name-only'], local)).toBe('unrelated.txt');
@@ -82,12 +88,17 @@ describe('commitToBadgeBranch', () => {
   it('replaces whatever the previous run left on the badge branch', () => {
     const { remote, local } = clonePair();
     writeFileSync(join(local, 'README.md'), 'first\n');
-    const { branch } = commitToBadgeBranch({ cwd: local, readme: 'README.md', message: commitMessage(11, true) });
+    const { branch } = commitToBadgeBranch({
+      cwd: local,
+      readme: 'README.md',
+      message: commitMessage(11, true),
+      base: 'main',
+    });
     const stale = git(['rev-parse', branch], remote);
 
     run(['checkout', '-q', 'main'], local);
     writeFileSync(join(local, 'README.md'), 'second\n');
-    commitToBadgeBranch({ cwd: local, readme: 'README.md', message: commitMessage(42, true) });
+    commitToBadgeBranch({ cwd: local, readme: 'README.md', message: commitMessage(42, true), base: 'main' });
 
     expect(git(['rev-parse', branch], remote)).not.toBe(stale);
     expect(git(['log', '-1', '--format=%s', branch], remote)).toBe('docs: update AI attribution badge to 42%');

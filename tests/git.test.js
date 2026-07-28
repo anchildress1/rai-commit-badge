@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { isShallow, readCommits, resolveRenamePath } from '../src/git.js';
+import { git, isShallow, readCommits, resolveRenamePath, syncWithOrigin } from '../src/git.js';
 import { score } from '../src/score.js';
-import { cleanup, commit, initRepo, run } from './helpers.js';
+import { cleanup, commit, initBareRepo, initRepo, run } from './helpers.js';
 
 const AI = 'Claude Opus 5 <noreply@anthropic.com>';
 const HUMAN = 'Jane Doe <jane@example.com>';
@@ -111,6 +111,70 @@ describe('readCommits', () => {
     expect(result.windowStart).toBe('2026-01-01');
     expect(result.churn).toBe(100);
     expect(result.displayed).toBe(81);
+  });
+});
+
+/** A clone wired to a fresh bare remote, with one commit on main. */
+function clonePair() {
+  const remote = initBareRepo();
+  const local = initRepo();
+  commit(local, { message: `feat: base\n\nAuthored-by: ${HUMAN}\n`, files: { 'a.txt': 'a\n' } });
+  run(['remote', 'add', 'origin', remote], local);
+  run(['push', '-q', '-u', 'origin', 'main'], local);
+  return { remote, local };
+}
+
+describe('syncWithOrigin', () => {
+  it('fetches and hard-resets onto a commit that landed on origin after checkout', () => {
+    const { remote, local } = clonePair();
+
+    // simulate a commit landing on origin after `local` already checked out an older commit
+    const other = initRepo();
+    run(['remote', 'add', 'origin', remote], other);
+    run(['fetch', '-q', 'origin'], other);
+    run(['checkout', '-q', 'origin/main'], other);
+    commit(other, { message: `feat: landed\n\nGenerated-by: ${AI}\n`, files: { 'b.txt': 'b\n' } });
+    run(['push', '-q', 'origin', 'HEAD:main'], other);
+    const landed = git(['rev-parse', 'main'], remote);
+
+    expect(syncWithOrigin(local)).toBe('main');
+
+    expect(git(['rev-parse', 'HEAD'], local)).toBe(landed);
+    expect(readCommits(local).map((c) => c.message.split('\n')[0])).toContain('feat: landed');
+  });
+
+  it('is a no-op that returns null on a detached checkout', () => {
+    const { local } = clonePair();
+    const sha = git(['rev-parse', 'HEAD'], local);
+    run(['checkout', '-q', sha], local);
+
+    expect(syncWithOrigin(local)).toBeNull();
+    expect(git(['rev-parse', 'HEAD'], local)).toBe(sha);
+  });
+
+  it('refuses to discard uncommitted changes to tracked files', () => {
+    const { local } = clonePair();
+    writeFileSync(join(local, 'a.txt'), 'dirty\n');
+
+    expect(() => syncWithOrigin(local)).toThrow(/Uncommitted changes/);
+    expect(readFileSync(join(local, 'a.txt'), 'utf8')).toBe('dirty\n');
+  });
+
+  it('ignores untracked files instead of treating them as dirty', () => {
+    const { local } = clonePair();
+    writeFileSync(join(local, 'scratch.log'), 'noise\n');
+
+    expect(syncWithOrigin(local)).toBe('main');
+    expect(readFileSync(join(local, 'scratch.log'), 'utf8')).toBe('noise\n');
+  });
+
+  it('refuses to discard a local commit origin does not have', () => {
+    const { local } = clonePair();
+    commit(local, { message: `feat: unpushed\n\nAuthored-by: ${HUMAN}\n`, files: { 'c.txt': 'c\n' } });
+    const ahead = git(['rev-parse', 'HEAD'], local);
+
+    expect(() => syncWithOrigin(local)).toThrow(/HEAD has commits/);
+    expect(git(['rev-parse', 'HEAD'], local)).toBe(ahead);
   });
 });
 

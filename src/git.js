@@ -30,6 +30,46 @@ export function isShallow(cwd) {
 }
 
 /**
+ * Fetch the checked-out branch's upstream tip and hard-reset onto it.
+ *
+ * An earlier step in the same job — an autoformat commit, a merge landing mid-run —
+ * can leave this checkout behind origin's true tip. Scoring or branching off it would
+ * silently miss that history and reopen a PR that's already out of date with its base.
+ *
+ * `reset --hard` discards uncommitted changes to every tracked file, and local commits
+ * origin doesn't have yet, not just the badge's own — so this refuses to run against
+ * a dirty tree or a checkout that's ahead of origin rather than eat someone else's
+ * work. It's also a no-op on a detached `HEAD` — there's no upstream branch to resolve
+ * — so callers checked out at a tag or SHA fall back to scoring whatever is already
+ * there, same as before this sync existed.
+ *
+ * @param {string} cwd repository directory
+ * @returns {string | null} the branch that was synced, or null when HEAD is detached
+ * @throws {Error} when the working tree is dirty or HEAD has commits origin lacks
+ */
+export function syncWithOrigin(cwd) {
+  let branch;
+  try {
+    branch = git(['symbolic-ref', '--short', 'HEAD'], cwd);
+  } catch {
+    return null;
+  }
+
+  if (git(['status', '--porcelain', '--untracked-files=no'], cwd)) {
+    throw new Error('Uncommitted changes present — refusing to sync with origin and discard them.');
+  }
+
+  git(['fetch', 'origin', branch], cwd);
+
+  if (git(['rev-list', '--count', `origin/${branch}..HEAD`], cwd) !== '0') {
+    throw new Error(`HEAD has commits origin/${branch} doesn't have — refusing to reset and discard them.`);
+  }
+
+  git(['reset', '--hard', `origin/${branch}`], cwd);
+  return branch;
+}
+
+/**
  * Resolve a rename path to its post-rename form.
  *
  * `--numstat` renders renames as `old => new` or `pre/{old => new}/post`.
