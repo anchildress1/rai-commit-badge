@@ -70,6 +70,7 @@ Measured across 24 repos, exclusions account for a **median 33% of churn**, rang
 Scoring starts at the earliest RAI footer. Everything before is excluded.
 
 - Unattributed commits inside the window score 0 and stay in the denominator
+- Commits authored by a known bot (release-please, this action's own committer) are excluded from both sides of the ratio entirely — not scored as 0, not counted at all
 - `since` input overrides auto-detection
 - Zero footers and zero `since` → badge reads `no attribution` in grey
 
@@ -139,7 +140,7 @@ When the target file lacks markers, the action leaves it untouched and the job s
 
 ### Job summary
 
-Written to `$GITHUB_STEP_SUMMARY` every run, computed in-memory: score, window start, granularity, and commit counts. Plus the marker snippet when the README lacks them.
+Written to `$GITHUB_STEP_SUMMARY` every run, computed in-memory: score, window start, granularity, commit counts, and excluded bot-commit count. Plus the marker snippet when the README lacks them.
 
 ---
 
@@ -161,7 +162,7 @@ branding:
 
 - Hard-fail on shallow clones; requires `fetch-depth: 0`
 - Skip the commit when output is byte-identical
-- Its own commit carries RAI footers
+- Its own commit carries no RAI footer — a bot can't meaningfully attribute AI involvement to itself, and its author identity excludes it from scoring entirely (see Window)
 - Job-level `contents: write`
 - Colour band lookup uses the displayed integer, so the badge colour always matches the number printed on it
 

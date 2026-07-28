@@ -174,7 +174,7 @@ Each footer carries a weight derived from what it declares:
 | `Co-authored-by`      | Roughly 50/50        | 0.50   |
 | `Generated-by`        | Majority AI          | 0.90   |
 
-Commits are weighted by lines changed. Lockfiles, dependency trees, build output, and minified assets are excluded.
+Commits are weighted by lines changed. Lockfiles, dependency trees, build output, and minified assets are excluded — so is any commit authored by a known bot (release-please, this action's own committer), since automation has no attribution to declare.
 
 The ceiling is 0.90.
 
@@ -244,8 +244,7 @@ A new score produces a new URL, so the image refreshes on its own.
 
 ## What's Next 🔭
 
-- **Phase 1** — scoring, badge, Marketplace listing
-- **Phase 2** — smarter handling of unattributed commits, starting with bot-authored ones
+- Smarter handling of unattributed commits beyond bots — scope still undefined
 
 See [`docs/prd.md`](docs/prd.md) for full scope.
 
