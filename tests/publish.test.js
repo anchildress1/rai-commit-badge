@@ -79,24 +79,6 @@ describe('commitToBadgeBranch', () => {
     expect(git(['diff', '--cached', '--name-only'], local)).toBe('unrelated.txt');
   });
 
-  it('cuts the branch from a freshly fetched base, not a stale local checkout', () => {
-    const { remote, local } = clonePair();
-
-    // simulate a commit landing on origin's main after `local` already checked out an older commit
-    const other = initRepo();
-    run(['remote', 'add', 'origin', remote], other);
-    run(['fetch', '-q', 'origin'], other);
-    run(['checkout', '-q', 'origin/main'], other);
-    commit(other, { message: `feat: landed on main\n\nAuthored-by: ${HUMAN}\n`, files: { 'race.txt': 'race\n' } });
-    run(['push', '-q', 'origin', 'HEAD:main'], other);
-    const landed = git(['rev-parse', 'main'], remote);
-
-    writeFileSync(join(local, 'README.md'), 'badged\n');
-    const { branch } = commitToBadgeBranch({ cwd: local, readme: 'README.md', message: commitMessage(42, true) });
-
-    expect(() => git(['merge-base', '--is-ancestor', landed, branch], remote)).not.toThrow();
-  });
-
   it('replaces whatever the previous run left on the badge branch', () => {
     const { remote, local } = clonePair();
     writeFileSync(join(local, 'README.md'), 'first\n');

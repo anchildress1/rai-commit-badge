@@ -40,6 +40,11 @@ export function badgeBranchName(base) {
 /**
  * Commit the badge onto a branch cut from the checked-out base and force-push it.
  *
+ * Freshness is the caller's job: `run()` syncs `HEAD` with origin before this is
+ * ever reached, so cutting from the current checkout and cutting from a second,
+ * independently fetched `origin/<base>` would risk the two disagreeing if a commit
+ * landed on base in between — one fetch, reused for both scoring and branching.
+ *
  * @param {object} params
  * @param {string} params.cwd repository directory
  * @param {string} params.readme path to the rewritten file
@@ -51,14 +56,9 @@ export function commitToBadgeBranch({ cwd, readme, message, run = git }) {
   const base = run(['symbolic-ref', '--short', 'HEAD'], cwd);
   const branch = badgeBranchName(base);
 
-  // an earlier step in the same job (or a merge landing mid-run) can leave this
-  // checkout behind origin's tip; cutting from a freshly fetched ref keeps the PR
-  // from reopening as already out of date with its base
-  run(['fetch', 'origin', base], cwd);
-
   run(['config', 'user.name', COMMITTER_NAME], cwd);
   run(['config', 'user.email', COMMITTER_EMAIL], cwd);
-  run(['checkout', '-B', branch, `origin/${base}`], cwd);
+  run(['checkout', '-B', branch], cwd);
   run(['add', '--', readme], cwd);
   run(['commit', '--only', '-m', message, '--', readme], cwd);
   // the branch is machine-owned and rebuilt from base every run, so the push

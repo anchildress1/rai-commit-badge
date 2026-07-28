@@ -128,6 +128,50 @@ describe('run', () => {
     expect(summary()).toContain('pull request #7');
   });
 
+  it('scores and branches from a commit that lands on base after checkout', async () => {
+    const { remote, local } = repoWithRemote();
+
+    // simulate a commit landing on origin's main (e.g. from an earlier job step)
+    // after `local` already checked out an older commit
+    const other = initRepo();
+    gitRun(['remote', 'add', 'origin', remote], other);
+    gitRun(['fetch', '-q', 'origin'], other);
+    gitRun(['checkout', '-q', 'origin/main'], other);
+    commit(other, {
+      message: `feat: landed\n\nGenerated-by: ${AI}\n`,
+      files: { 'src/c.js': 'c\n'.repeat(10) },
+      date: '2026-01-03T12:00:00 +0000',
+    });
+    gitRun(['push', '-q', 'origin', 'HEAD:main'], other);
+    const landed = git(['rev-parse', 'main'], remote);
+
+    const result = await run({ cwd: local, fetchImpl: fakeFetch(8) });
+
+    // the landed commit's churn is folded into the score...
+    expect(result.churn).toBe(114);
+    // ...and the badge branch descends from it, not the stale checkout it started from
+    expect(() => git(['merge-base', '--is-ancestor', landed, BADGE_BRANCH], remote)).not.toThrow();
+  });
+
+  it('scores a detached checkout as-is instead of crashing on the sync', async () => {
+    // a detached HEAD (a pinned tag or SHA, or a pull_request event's merge commit) has
+    // no branch name to sync against; the no-op paths must survive that, not just the
+    // ones that go on to actually publish
+    const { local: scratch } = repoWithRemote();
+    await run({ cwd: scratch, fetchImpl: fakeFetch() });
+    const badged = readFileSync(join(scratch, 'README.md'), 'utf8');
+
+    const { local } = repoWithRemote(badged);
+    const sha = git(['rev-parse', 'HEAD'], local);
+    gitRun(['checkout', '-q', sha], local);
+    core.summary.emptyBuffer();
+
+    const result = await run({ cwd: local, fetchImpl: fakeFetch() });
+
+    expect(result.displayed).toBe(81);
+    expect(summary()).toContain('| Badge | unchanged |');
+  });
+
   it('skips the commit when the badge is byte-identical', async () => {
     // capture the exact markdown a fresh score produces, then seed a second repo's
     // base with it already committed — as if the badge PR had already been merged

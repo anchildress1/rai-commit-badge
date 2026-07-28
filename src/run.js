@@ -76,7 +76,9 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd(),
     throw new Error('Shallow clone: the history has nothing to score. Set `fetch-depth: 0` on actions/checkout.');
   }
 
-  syncWithOrigin(cwd);
+  if (syncWithOrigin(cwd) === null) {
+    core.warning('HEAD is detached — scoring the checked-out commit as-is instead of syncing with origin.');
+  }
 
   const result = score(readCommits(cwd), { since });
   const badge = badgeMarkdown(result, style);
