@@ -99,6 +99,9 @@ jobs:
 > [!IMPORTANT]
 > Turn on **Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to create and approve pull requests"**, or the action cannot open its pull request.
 
+> [!IMPORTANT]
+> The action syncs the checkout with `origin` before scoring, and refuses to run if the workspace has uncommitted changes or local commits `origin` doesn't have yet — commit or push those in an earlier step, not after this one.
+
 The badge arrives as a pull request on `rai-badge--branches--<base>`, rebuilt from the base each run, so it always holds one commit.
 
 ---

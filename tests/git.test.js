@@ -159,6 +159,23 @@ describe('syncWithOrigin', () => {
     expect(() => syncWithOrigin(local)).toThrow(/Uncommitted changes/);
     expect(readFileSync(join(local, 'a.txt'), 'utf8')).toBe('dirty\n');
   });
+
+  it('ignores untracked files instead of treating them as dirty', () => {
+    const { local } = clonePair();
+    writeFileSync(join(local, 'scratch.log'), 'noise\n');
+
+    expect(syncWithOrigin(local)).toBe('main');
+    expect(readFileSync(join(local, 'scratch.log'), 'utf8')).toBe('noise\n');
+  });
+
+  it('refuses to discard a local commit origin does not have', () => {
+    const { local } = clonePair();
+    commit(local, { message: `feat: unpushed\n\nAuthored-by: ${HUMAN}\n`, files: { 'c.txt': 'c\n' } });
+    const ahead = git(['rev-parse', 'HEAD'], local);
+
+    expect(() => syncWithOrigin(local)).toThrow(/HEAD has commits/);
+    expect(git(['rev-parse', 'HEAD'], local)).toBe(ahead);
+  });
 });
 
 describe('isShallow', () => {

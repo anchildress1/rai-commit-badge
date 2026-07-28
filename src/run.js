@@ -76,8 +76,16 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd(),
     throw new Error('Shallow clone: the history has nothing to score. Set `fetch-depth: 0` on actions/checkout.');
   }
 
-  if (syncWithOrigin(cwd) === null) {
-    core.warning('HEAD is detached — scoring the checked-out commit as-is instead of syncing with origin.');
+  let base = syncWithOrigin(cwd);
+  if (base === null) {
+    // a detached HEAD (a pinned tag/SHA, or a pull_request event's merge commit) has no
+    // branch to sync against; GITHUB_BASE_REF carries the PR's real base in that case
+    base = process.env.GITHUB_BASE_REF || process.env.GITHUB_REF_NAME || null;
+    core.warning(
+      base
+        ? `HEAD is detached — scoring the checkout as-is; resolved base "${base}" from the Actions environment.`
+        : 'HEAD is detached and no base branch could be resolved from the Actions environment — scoring the checkout as-is.'
+    );
   }
 
   const result = score(readCommits(cwd), { since });
@@ -106,10 +114,13 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd(),
     commitState = 'unchanged';
     core.info('Badge is byte-identical — skipping the commit.');
   } else {
+    if (base === null) {
+      throw new Error('No base branch resolved — cannot open a pull request without one to target.');
+    }
     writeFileSync(target, content);
     const { owner, repo } = readRepository();
     const message = commitMessage(result.displayed, result.attributed);
-    const { base, branch } = commitToBadgeBranch({ cwd, readme, message });
+    const { branch } = commitToBadgeBranch({ cwd, readme, message, base });
     const number = await ensurePullRequest({
       owner,
       repo,

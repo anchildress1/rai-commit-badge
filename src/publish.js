@@ -40,20 +40,22 @@ export function badgeBranchName(base) {
 /**
  * Commit the badge onto a branch cut from the checked-out base and force-push it.
  *
- * Freshness is the caller's job: `run()` syncs `HEAD` with origin before this is
- * ever reached, so cutting from the current checkout and cutting from a second,
- * independently fetched `origin/<base>` would risk the two disagreeing if a commit
- * landed on base in between — one fetch, reused for both scoring and branching.
+ * `base` is resolved once by the caller and passed in rather than re-derived here via
+ * `symbolic-ref`: `run()` already had to resolve it to sync `HEAD` with origin, and
+ * `symbolic-ref` fails outright on a detached checkout — a case the caller already
+ * knows how to fall back on (e.g. `GITHUB_BASE_REF`) but this function has no way to.
+ * Re-deriving it here would also risk disagreeing with the caller's resolution if a
+ * commit landed on base in between.
  *
  * @param {object} params
  * @param {string} params.cwd repository directory
  * @param {string} params.readme path to the rewritten file
  * @param {string} params.message the commit message
+ * @param {string} params.base the branch the badge is measured from
  * @param {(args: string[], cwd: string) => string} [params.run] git runner, injected for tests
  * @returns {{base: string, branch: string}} the base branch and the branch the badge landed on
  */
-export function commitToBadgeBranch({ cwd, readme, message, run = git }) {
-  const base = run(['symbolic-ref', '--short', 'HEAD'], cwd);
+export function commitToBadgeBranch({ cwd, readme, message, base, run = git }) {
   const branch = badgeBranchName(base);
 
   run(['config', 'user.name', COMMITTER_NAME], cwd);
