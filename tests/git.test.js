@@ -66,6 +66,29 @@ describe('readCommits', () => {
     expect(readCommits(dir)).toHaveLength(3);
   });
 
+  it('captures the commit author as Name <email>', () => {
+    const dir = initRepo();
+    commit(dir, { message: `feat: a\n\nGenerated-by: ${AI}\n`, files: { 'a.txt': 'a\n' } });
+
+    expect(readCommits(dir)[0].author).toBe('Fixture <fixture@example.com>');
+  });
+
+  it('excludes bot-authored commits from scoring, churn included', () => {
+    const dir = initRepo();
+    commit(dir, { message: `feat: a\n\nGenerated-by: ${AI}\n`, files: { 'src/a.js': 'a\n'.repeat(10) } });
+    commit(dir, {
+      message: 'docs: update AI attribution badge to 42%',
+      files: { 'README.md': 'x\n'.repeat(500) },
+      author: 'github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>',
+    });
+
+    const result = score(readCommits(dir));
+    expect(result.botCommits).toBe(1);
+    expect(result.commits).toBe(1);
+    expect(result.churn).toBe(10);
+    expect(result.displayed).toBe(90);
+  });
+
   it('scores a whole fixture history end to end', () => {
     const dir = initRepo();
     commit(dir, {

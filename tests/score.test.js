@@ -4,7 +4,7 @@ import { score } from '../src/score.js';
 const AI = 'Claude Opus 5 <noreply@anthropic.com>';
 const HUMAN = 'Jane Doe <jane@example.com>';
 
-const commit = (date, message, files) => ({ sha: date, date, message, files });
+const commit = (date, message, files, author = HUMAN) => ({ sha: date, date, author, message, files });
 const src = (lines, path = 'src/index.js') => [{ added: lines, deleted: 0, path }];
 
 describe('score', () => {
@@ -77,6 +77,26 @@ describe('score', () => {
       commit('2026-01-02', `chore: bump\n\nGenerated-by: ${AI}`, src(100, 'package-lock.json')),
     ]);
     expect(result.percent).toBeCloseTo(25, 6);
+  });
+
+  it('drops bot-authored commits from both sides of the ratio', () => {
+    const BOT = 'github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>';
+    const result = score([
+      commit('2026-01-01', `feat: a\n\nGenerated-by: ${AI}`, src(10)),
+      commit('2026-01-02', 'docs: update AI attribution badge to 42%', src(500), BOT),
+    ]);
+    expect(result.botCommits).toBe(1);
+    expect(result.commits).toBe(1);
+    expect(result.churn).toBe(10);
+    expect(result.displayed).toBe(90);
+  });
+
+  it('reports no attribution when only bot commits exist', () => {
+    const BOT = 'release-please[bot] <example@example.com>';
+    const result = score([commit('2026-01-01', 'chore: release main', src(100), BOT)]);
+    expect(result.attributed).toBe(false);
+    expect(result.botCommits).toBe(1);
+    expect(result.commits).toBe(0);
   });
 
   it('counts squashed commits', () => {

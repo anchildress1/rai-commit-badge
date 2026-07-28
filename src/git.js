@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 const RECORD = '\x1e';
 const FIELD = '\x1f';
 
-const LOG_FORMAT = `${RECORD}%H${FIELD}%ad${FIELD}%B${FIELD}`;
+const LOG_FORMAT = `${RECORD}%H${FIELD}%ad${FIELD}%an <%ae>${FIELD}%B${FIELD}`;
 
 /**
  * Run git and return stdout.
@@ -49,7 +49,8 @@ export function resolveRenamePath(path) {
  * Read every non-merge commit reachable from HEAD.
  *
  * @param {string} cwd repository directory
- * @returns {Array<{sha: string, date: string, message: string, files: Array<{added: number, deleted: number, path: string}>}>}
+ * @returns {Array<{sha: string, date: string, author: string, message: string,
+ *   files: Array<{added: number, deleted: number, path: string}>}>}
  */
 export function readCommits(cwd) {
   const out = execFileSync('git', ['log', '--no-merges', '--numstat', '--date=short', `--format=${LOG_FORMAT}`], {
@@ -62,8 +63,8 @@ export function readCommits(cwd) {
   for (const record of out.split(RECORD)) {
     if (!record.trim()) continue;
     const parts = record.split(FIELD);
-    if (parts.length < 4) continue;
-    const [sha, date, message, tail] = parts;
+    if (parts.length < 5) continue;
+    const [sha, date, author, message, tail] = parts;
 
     const files = [];
     for (const line of tail.split('\n')) {
@@ -76,7 +77,7 @@ export function readCommits(cwd) {
         path: resolveRenamePath(fields[2]),
       });
     }
-    commits.push({ sha, date, message, files });
+    commits.push({ sha, date, author, message, files });
   }
   return commits;
 }

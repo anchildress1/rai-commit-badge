@@ -38,18 +38,21 @@ export function initBareRepo() {
  * Write files and commit them.
  *
  * @param {string} dir repository directory
- * @param {{message: string, files?: Record<string, string|Buffer>, date?: string}} params
+ * @param {{message: string, files?: Record<string, string|Buffer>, date?: string, author?: string}} params
+ *   `author` overrides the fixture's default identity, as `Name <email>`
  */
-export function commit(dir, { message, files = {}, date = '2026-01-01T12:00:00 +0000' }) {
+export function commit(dir, { message, files = {}, date = '2026-01-01T12:00:00 +0000', author }) {
   for (const [path, content] of Object.entries(files)) {
     const full = join(dir, path);
     mkdirSync(dirname(full), { recursive: true });
     writeFileSync(full, content);
   }
   run(['add', '-A'], dir);
+  const [, authorName, authorEmail] = author ? /^(.*) <(.*)>$/.exec(author) : [];
   run(['commit', '-q', '--no-verify', '--cleanup=verbatim', '-m', message], dir, {
     GIT_AUTHOR_DATE: date,
     GIT_COMMITTER_DATE: date,
+    ...(author ? { GIT_AUTHOR_NAME: authorName, GIT_AUTHOR_EMAIL: authorEmail } : {}),
   });
 }
 
