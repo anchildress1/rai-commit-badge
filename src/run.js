@@ -26,7 +26,7 @@ function isRealDate(value) {
 /**
  * Read and validate the action's inputs.
  *
- * @returns {{since: string | undefined, readme: string, style: string}}
+ * @returns {{since: string | undefined, readme: string, style: string, token: string}}
  * @throws {Error} on an unknown style or a malformed `since`
  */
 export function readInputs() {
@@ -110,8 +110,10 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd(),
     if (base === null) {
       throw new Error('Cannot publish from a detached HEAD.');
     }
-    writeFileSync(target, content);
+    // resolved before the write: a missing GITHUB_REPOSITORY would otherwise leave
+    // a rewritten badge in the tree for later steps to trip over
     const { owner, repo } = readRepository();
+    writeFileSync(target, content);
     const message = commitMessage(result.displayed, result.attributed);
     const { branch } = commitToBadgeBranch({ cwd, readme, message, base });
     const number = await ensurePullRequest({
