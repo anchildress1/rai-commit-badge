@@ -8,8 +8,8 @@ import { resolveWeight } from './groups.js';
  * The window opens at the earliest attributed commit, or at `since` when given.
  * Unattributed commits inside the window score 0 and stay in the denominator.
  * Commits authored by a known bot — release-please, this action's own committer —
- * carry no RAI footer of their own and are dropped from both sides of the ratio,
- * the same way an excluded path is: automation isn't the thing being measured.
+ * are dropped from the commit list outright, before any churn is counted:
+ * automation carries no RAI footer of its own and isn't the thing being measured.
  *
  * @param {Array<{sha: string, date: string, author: string, message: string, files: Array}>} commits
  * @param {{since?: string}} [options] `since` as `YYYY-MM-DD`
@@ -32,32 +32,10 @@ export function score(commits, { since } = {}) {
     if (weight !== null && (earliest === null || date < earliest)) earliest = date;
   }
   const windowStart = since ?? earliest;
-
-  if (windowStart === null) {
-    return {
-      attributed: false,
-      percent: 0,
-      displayed: 0,
-      windowStart: null,
-      commits: scored.length,
-      botCommits,
-      windowCommits: 0,
-      attributedCommits: 0,
-      squashedCommits: 0,
-      churn: 0,
-    };
-  }
-
-  const window = scored.filter((c) => c.date >= windowStart);
+  const window = windowStart === null ? [] : scored.filter((c) => c.date >= windowStart);
   const churn = window.reduce((sum, c) => sum + c.churn, 0);
-  const weighted = window.reduce((sum, c) => sum + (c.weight ?? 0) * c.churn, 0);
-  const percent = churn ? (100 * weighted) / churn : 0;
 
-  return {
-    attributed: true,
-    percent,
-    displayed: Math.round(percent),
-    windowStart,
+  const counts = {
     commits: scored.length,
     botCommits,
     windowCommits: window.length,
@@ -65,4 +43,17 @@ export function score(commits, { since } = {}) {
     squashedCommits: window.filter((c) => c.groups > 1).length,
     churn,
   };
+
+  // Churn is the denominator, so without it nothing was measured — and a 0% badge
+  // is indistinguishable from a measured zero. Catches a `since` past the last
+  // commit and a window whose every file is excluded, both of which would
+  // otherwise publish "0% AI" over history that is nothing of the sort.
+  if (churn === 0) {
+    return { attributed: false, percent: 0, displayed: 0, windowStart: null, ...counts };
+  }
+
+  const weighted = window.reduce((sum, c) => sum + (c.weight ?? 0) * c.churn, 0);
+  const percent = (100 * weighted) / churn;
+
+  return { attributed: true, percent, displayed: Math.round(percent), windowStart, ...counts };
 }

@@ -104,15 +104,37 @@ describe('score', () => {
     expect(score([commit('2026-01-01', squashed, src(10))]).squashedCommits).toBe(1);
   });
 
-  it('holds the ceiling at 0.90', () => {
+  it('tops out at 90% because Generated-by is the heaviest footer', () => {
     const result = score([commit('2026-01-01', `feat: a\n\nGenerated-by: ${AI}`, src(100))]);
     expect(result.displayed).toBe(90);
   });
 
-  it('scores zero churn without dividing by zero', () => {
+  it('reports no attribution when an attributed commit has no countable churn', () => {
     const result = score([commit('2026-01-01', `docs: a\n\nGenerated-by: ${AI}`, [])]);
-    expect(result.percent).toBe(0);
+    // the footer is present, so the badge must not claim a measured 0%
+    expect(result.attributed).toBe(false);
+    expect(result.attributedCommits).toBe(1);
     expect(result.churn).toBe(0);
+  });
+
+  it('reports no attribution when since lands past the last commit', () => {
+    const result = score([commit('2026-01-01', `feat: a\n\nGenerated-by: ${AI}`, src(10))], { since: '2030-01-01' });
+    expect(result.attributed).toBe(false);
+    expect(result.displayed).toBe(0);
+    expect(result.windowCommits).toBe(0);
+  });
+
+  it('reports no attribution when every windowed file is excluded', () => {
+    const lockfile = [{ added: 900, deleted: 900, path: 'package-lock.json' }];
+    const result = score([commit('2026-01-01', `chore: deps\n\nGenerated-by: ${AI}`, lockfile)]);
+    expect(result.attributed).toBe(false);
+    expect(result.churn).toBe(0);
+  });
+
+  it('reports no attribution for an empty history, with and without since', () => {
+    expect(score([]).attributed).toBe(false);
+    expect(score([], { since: '2026-01-01' }).attributed).toBe(false);
+    expect(score([], { since: '2026-01-01' }).windowCommits).toBe(0);
   });
 
   it('rounds to the displayed integer at the band boundary', () => {

@@ -10,7 +10,7 @@ const pct = (part, whole) => (whole ? `${((100 * part) / whole).toFixed(1)}%` : 
  * @param {string} params.badge the badge markdown
  * @param {string} params.readme the target file path
  * @param {number} params.replaced marker pairs rewritten
- * @param {string} params.commitState `no markers`, `unchanged`, or `committed to <branch>`
+ * @param {string} params.commitState `no markers`, `unchanged`, or `pull request #<n> from <branch>`
  * @returns {string} markdown for `$GITHUB_STEP_SUMMARY`
  */
 export function buildSummary({ result, badge, readme, replaced, commitState }) {
@@ -27,7 +27,12 @@ export function buildSummary({ result, badge, readme, replaced, commitState }) {
       `| Scored churn | ${result.churn} lines |`
     );
   } else {
-    lines.push(`| Score | no attribution — no RAI footer found in ${result.commits} commits |`);
+    // footers with no countable churn and no footers at all both land here, and
+    // conflating them sends someone hunting for a missing footer that is present
+    const reason = result.attributedCommits
+      ? `${result.attributedCommits} attributed commits, but no countable churn in the window`
+      : `no RAI footer found in ${result.commits} commits`;
+    lines.push(`| Score | no attribution — ${reason} |`);
   }
 
   lines.push(`| Target file | \`${readme}\` |`, `| Badge | ${commitState} |`, '');
