@@ -1,6 +1,6 @@
 // Asserts this action's footer keys still match rai-lint's. A key added there
 // and missed here silently scores those commits as unattributed.
-import { AI_ATTRIBUTION_KEYS } from '../src/keys.js';
+import { AI_ATTRIBUTION_KEYS, WEIGHTS } from '../src/keys.js';
 
 const SOURCE =
   'https://raw.githubusercontent.com/anchildress1/rai-lint/main/packages/python-gitlint/gitlint_rai/rules.py';
@@ -25,6 +25,17 @@ if (upstream.join(',') !== ours.join(',')) {
   console.error('Footer key sets have drifted.');
   console.error(`  rai-lint:         ${upstream.join(', ')}`);
   console.error(`  rai-commit-badge: ${ours.join(', ')}`);
+  process.exit(1);
+}
+
+// Satisfying the check above by adding a key without a weight is strictly worse
+// than the drift it guards: WEIGHTS[key] is undefined, the mean goes NaN, `?? 0`
+// does not catch NaN, and it surfaces as a TypeError in bandColor three modules
+// away from the cause.
+const unweighted = ours.filter((key) => typeof WEIGHTS[key.toLowerCase()] !== 'number');
+if (unweighted.length) {
+  console.error(`Footer keys carry no weight: ${unweighted.join(', ')}`);
+  console.error('  Add them to WEIGHTS in src/keys.js.');
   process.exit(1);
 }
 
