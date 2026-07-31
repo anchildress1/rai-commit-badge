@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 
 const RECORD = '\x1e';
 const FIELD = '\x1f';
@@ -48,12 +48,16 @@ export function isShallow(cwd) {
  * @throws {Error} when the working tree is dirty or HEAD has commits origin lacks
  */
 export function syncWithOrigin(cwd) {
-  let branch;
-  try {
-    branch = git(['symbolic-ref', '--short', 'HEAD'], cwd);
-  } catch {
-    return null;
+  // Under `--quiet` a detached HEAD is exit 1 with no stderr, while a broken or
+  // absent repository is 128 with a fatal. Catching both as "detached" would skip
+  // the sync this function exists to perform and blame the wrong cause for it.
+  const head = spawnSync('git', ['symbolic-ref', '--quiet', '--short', 'HEAD'], { cwd, encoding: 'utf8' });
+  if (head.error) throw head.error;
+  if (head.status === 1) return null;
+  if (head.status !== 0) {
+    throw new Error(`Could not resolve HEAD in ${cwd}: ${head.stderr.trim() || `git exited ${head.status}`}`);
   }
+  const branch = head.stdout.trim();
 
   if (git(['status', '--porcelain', '--untracked-files=no'], cwd)) {
     throw new Error('Uncommitted changes present — refusing to sync with origin and discard them.');
@@ -102,9 +106,24 @@ export function readCommits(cwd) {
   const commits = [];
   for (const record of out.split(RECORD)) {
     if (!record.trim()) continue;
+    // A message carrying a raw separator would otherwise split into extra fields:
+    // the body truncates at it, losing any footer past that point, and the numstat
+    // lands in a field nothing reads, zeroing the commit's churn. Both skew the
+    // ratio silently, so bound the split and rejoin the body instead.
     const parts = record.split(FIELD);
-    if (parts.length < 5) continue;
-    const [sha, date, author, message, tail] = parts;
+    // too few fields means a raw record separator inside a message split one commit
+    // in two. Skipping the fragments drops that commit's churn from the ratio with
+    // no signal, so refuse to report a number built on history we know we misread.
+    if (parts.length < 5) {
+      throw new Error(
+        `Unparsable git log record — a commit message contains a raw record separator: ${JSON.stringify(record.slice(0, 80))}`
+      );
+    }
+    const sha = parts[0];
+    const date = parts[1];
+    const author = parts[2];
+    const message = parts.slice(3, -1).join(FIELD);
+    const tail = parts.at(-1);
 
     const files = [];
     for (const line of tail.split('\n')) {

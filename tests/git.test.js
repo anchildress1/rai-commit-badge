@@ -124,6 +124,33 @@ function clonePair() {
   return { remote, local };
 }
 
+describe('readCommits separator handling', () => {
+  it('keeps a footer that sits after a raw field separator in the message', () => {
+    const dir = initRepo();
+    // \x1f is the field delimiter; an unbounded split truncates the body here and
+    // pushes the numstat into a field nothing reads, zeroing the commit's churn
+    commit(dir, {
+      message: `feat: a\n\nsome\x1ftext\n\nGenerated-by: ${AI}\n`,
+      files: { 'src/a.js': 'one\ntwo\nthree\n' },
+    });
+
+    const [parsed] = readCommits(dir);
+    expect(parsed.message).toContain('Generated-by:');
+    expect(parsed.files).toEqual([{ added: 3, deleted: 0, path: 'src/a.js' }]);
+    expect(score([parsed]).attributed).toBe(true);
+  });
+
+  it('throws rather than silently dropping a commit split by a record separator', () => {
+    const dir = initRepo();
+    commit(dir, {
+      message: `feat: a\n\nsplit\x1ehere\n\nGenerated-by: ${AI}\n`,
+      files: { 'src/a.js': 'one\ntwo\n' },
+    });
+
+    expect(() => readCommits(dir)).toThrow(/raw record separator/);
+  });
+});
+
 describe('syncWithOrigin', () => {
   it('fetches and hard-resets onto a commit that landed on origin after checkout', () => {
     const { remote, local } = clonePair();
@@ -150,6 +177,12 @@ describe('syncWithOrigin', () => {
 
     expect(syncWithOrigin(local)).toBeNull();
     expect(git(['rev-parse', 'HEAD'], local)).toBe(sha);
+  });
+
+  it('throws instead of reading a non-repository as a detached checkout', () => {
+    // returning null here would skip the sync and blame a detached HEAD for it
+    const notARepo = mkdtempSync(join(tmpdir(), 'rai-badge-bare-dir-'));
+    expect(() => syncWithOrigin(notARepo)).toThrow(/Could not resolve HEAD/);
   });
 
   it('refuses to discard uncommitted changes to tracked files', () => {
