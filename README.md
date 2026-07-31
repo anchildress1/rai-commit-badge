@@ -182,7 +182,9 @@ Each footer carries a weight derived from what it declares:
 
 Commits are weighted by lines changed. Lockfiles, dependency trees, build output, and minified assets are excluded — so is any commit authored by a known bot (release-please, this action's own committer), since automation has no attribution to declare.
 
-The ceiling is 0.90.
+`Generated-by` is the heaviest footer, so a fully AI-generated history tops out at 90%.
+
+If a window has no countable churn — a `since` past your last commit, or every changed file excluded — the badge reads **no attribution** rather than 0%. A measured zero and nothing-to-measure are different claims.
 
 ### Scoring starts when you adopted
 
@@ -194,7 +196,7 @@ AI attribution | 42% since 2026-03
 
 Inside the window, commits with no footer count as human, at weight 0.
 
-The colour tracks which footer dominates:
+The colour tracks the score printed on the badge:
 
 | Score   |           |           |
 | ------- | --------- | --------- |
@@ -203,7 +205,7 @@ The colour tracks which footer dominates:
 | 67–100% | `#C03070` | AI-led    |
 
 > [!NOTE]
-> `Co-authored-by` counts as AI only when the identity matches a known AI tool. Human co-authors score 0 — including the ones GitHub injects automatically when squashing.
+> `Co-authored-by` counts as AI only when the identity matches a known AI tool. Human co-authors are ignored — including the ones GitHub injects automatically when squashing. A paragraph whose only RAI footer is a human `Co-authored-by` is discarded rather than averaged in as a zero.
 
 ---
 
