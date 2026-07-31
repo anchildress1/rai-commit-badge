@@ -39,9 +39,9 @@ A GitHub Marketplace Action that scores a repo's footers and commits a shields.i
 aiPercent = Σ(weight × churn) / Σ(churn)
 ```
 
-Ceiling is 0.90.
+`Generated-by` is the heaviest footer at 0.90, so a fully AI-generated history tops out at 90%. This is emergent from the table, not a clamp.
 
-`Co-authored-by` scores 0.50 when the identity matches a known AI tool, otherwise 0.
+`Co-authored-by` scores 0.50 when the identity matches a known AI tool. Otherwise the line is ignored — not averaged in as a zero — and a group holding no other RAI footer is discarded.
 
 **Churn** = lines added + deleted, from `--numstat`.
 
@@ -73,6 +73,7 @@ Scoring starts at the earliest RAI footer. Everything before is excluded.
 - Commits authored by a known bot (release-please, this action's own committer) are excluded from both sides of the ratio entirely — not scored as 0, not counted at all
 - `since` input overrides auto-detection
 - Zero footers and zero `since` → badge reads `no attribution` in grey
+- A window with no countable churn reads `no attribution` too — a `since` past the last commit, or every changed file excluded. Reporting `0%` there would claim a measurement that never happened
 
 ---
 
@@ -105,6 +106,8 @@ The average is size-blind. README documents the cost, without prescribing a merg
 ## Outputs
 
 The action writes one thing: badge markdown between markers in the consumer's README.
+
+It does not write it to the consumer's branch. The rewrite is committed to a machine-owned branch, `rai-badge--branches--<base>`, cut fresh from the base each run and force-pushed, and a pull request is opened or retitled against the base. The checkout is handed back on the base afterwards, so the working tree carries no badge and later steps in the job are unaffected.
 
 ```markdown
 <!--START_SECTION:rai-badge-->
@@ -146,11 +149,12 @@ Written to `$GITHUB_STEP_SUMMARY` every run, computed in-memory: score, window s
 
 ## Action
 
-| Input    | Default     | Accepts                                                     |
-| -------- | ----------- | ----------------------------------------------------------- |
-| `since`  | auto        | `YYYY-MM-DD` window start                                   |
-| `readme` | `README.md` | path to the file holding the markers                        |
-| `style`  | `flat`      | `flat`, `flat-square`, `plastic`, `for-the-badge`, `social` |
+| Input    | Default        | Accepts                                                     |
+| -------- | -------------- | ----------------------------------------------------------- |
+| `since`  | auto           | `YYYY-MM-DD` window start                                   |
+| `readme` | `README.md`    | path to the file holding the markers                        |
+| `style`  | `flat`         | `flat`, `flat-square`, `plastic`, `for-the-badge`, `social` |
+| `token`  | `github.token` | token used to open the badge pull request                   |
 
 `label` and the color bands stay fixed — they carry the meaning that makes one repo's badge comparable to another's.
 
@@ -163,8 +167,18 @@ branding:
 - Hard-fail on shallow clones; requires `fetch-depth: 0`
 - Skip the commit when output is byte-identical
 - Its own commit carries no RAI footer — a bot can't meaningfully attribute AI involvement to itself, and its author identity excludes it from scoring entirely (see Window)
-- Job-level `contents: write`
+- Job-level `contents: write` and `pull-requests: write`
 - Colour band lookup uses the displayed integer, so the badge colour always matches the number printed on it
+- Report `no attribution` rather than `0%` when the window holds no countable churn — a measured zero and nothing-to-measure are different claims
+
+### Refusals
+
+The action would rather fail than publish a number it cannot stand behind:
+
+- Sync with `origin` before scoring, and refuse on a dirty tree or a checkout holding commits `origin` lacks
+- Score a detached `HEAD` as-is, but refuse to publish from one
+- Refuse when the parsed commit count disagrees with `git rev-list` — a raw record separator in a message can forge a commit record outright
+- Refuse an empty `token` before anything is pushed, not at the pull request call after
 
 ### Marketplace
 

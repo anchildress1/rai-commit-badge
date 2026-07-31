@@ -105,7 +105,10 @@ jobs:
 > [!IMPORTANT]
 > The action syncs the checkout with `origin` before scoring, and refuses to run if the workspace has uncommitted changes or local commits `origin` doesn't have yet — commit or push those in an earlier step, not after this one.
 
-The badge arrives as a pull request on `rai-badge--branches--<base>`, rebuilt from the base each run, so it always holds one commit.
+The badge arrives as a pull request on `rai-badge--branches--<base>`, rebuilt from the base each run, so it always holds one commit. Your checkout is handed back on the base branch afterwards — the badge lives on the branch and in the PR, never in your working tree, so later steps in the same job are unaffected.
+
+> [!NOTE]
+> The PR is opened with `github.token` by default, and GitHub does not run workflows on pull requests that token creates. If you want CI to run on the badge PR, pass a PAT as `token:` instead.
 
 ---
 
