@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as core from '@actions/core';
@@ -269,5 +269,15 @@ describe('run', () => {
     await run({ cwd: local });
 
     expect(summary()).toContain('### No markers in `MISSING.md`');
+  });
+
+  it('fails rather than skipping the badge when the target cannot be read', async () => {
+    // a directory reads as EISDIR, not ENOENT — an unreadable target must not
+    // report success with the badge quietly left alone
+    const { local } = repoWithRemote();
+    mkdirSync(join(local, 'adirectory.md'), { recursive: true });
+    process.env.INPUT_README = 'adirectory.md';
+
+    await expect(run({ cwd: local })).rejects.toThrow(/EISDIR/);
   });
 });

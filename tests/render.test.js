@@ -90,6 +90,16 @@ describe('replaceMarkers', () => {
     expect(replaceMarkers(before, block).content).toBe(before);
   });
 
+  it('preserves CRLF line endings instead of rewriting the whole file', () => {
+    // rejoining on \n would rewrite every line of a CRLF repo's README as a diff
+    const before = `# Title\r\n${START_MARKER}\r\n![badge](old)\r\n${END_MARKER}\r\n`;
+    const { content, replaced } = replaceMarkers(before, block);
+
+    expect(replaced).toBe(1);
+    expect(content).toBe(`# Title\r\n${START_MARKER}\r\n${block}\r\n${END_MARKER}\r\n`);
+    expect(content).not.toMatch(/[^\r]\n/);
+  });
+
   it('leaves a START with no END untouched', () => {
     const before = `# Title\n${START_MARKER}\nbody\n`;
     expect(replaceMarkers(before, block)).toEqual({ content: before, replaced: 0 });

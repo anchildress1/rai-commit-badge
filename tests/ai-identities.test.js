@@ -26,6 +26,12 @@ describe('parseIdentity', () => {
     expect(parseIdentity('Bot <BOT@Anthropic.COM>').domain).toBe('anthropic.com');
   });
 
+  it('strips trailing backslashes from a URL pasted into the address slot', () => {
+    // the hand-rolled trim exists because /\\+$/ backtracks quadratically here
+    expect(parseIdentity('Tool <https://example.com\\\\\\\\>').domain).toBe('');
+    expect(parseIdentity('Claude <noreply@anthropic.com\\\\>').domain).toBe('anthropic.com');
+  });
+
   it('yields no domain for an address with no @', () => {
     expect(parseIdentity('Bot <not-an-email>').domain).toBe('');
   });
