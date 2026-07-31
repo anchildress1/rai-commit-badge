@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { resolve, sep } from 'node:path';
 import * as core from '@actions/core';
 import { isShallow, readCommits, syncWithOrigin } from './git.js';
 import { commitMessage, commitToBadgeBranch, ensurePullRequest } from './publish.js';
@@ -83,7 +83,13 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd(),
 
   const result = score(readCommits(cwd), { since });
   const badge = badgeMarkdown(result, style);
+
+  // an absolute or `../` readme resolves outside the workspace, and the write lands
+  // there before `git add --` rejects the out-of-tree path and fails the job
   const target = resolve(cwd, readme);
+  if (target !== cwd && !target.startsWith(resolve(cwd) + sep)) {
+    throw new Error(`readme "${readme}" resolves outside the workspace. Give a path relative to the repository root.`);
+  }
 
   let original = null;
   try {
@@ -110,9 +116,15 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd(),
     if (base === null) {
       throw new Error('Cannot publish from a detached HEAD.');
     }
-    // resolved before the write: a missing GITHUB_REPOSITORY would otherwise leave
-    // a rewritten badge in the tree for later steps to trip over
+    // both resolved before the write: the push lands before the pull request call,
+    // so a missing repository or token would otherwise be discovered with a rewritten
+    // badge in the tree and a branch already on origin
     const { owner, repo } = readRepository();
+    if (!token.trim()) {
+      throw new Error(
+        'No token supplied — cannot open the badge pull request. Leave `token:` unset to use github.token.'
+      );
+    }
     writeFileSync(target, content);
     const message = commitMessage(result.displayed, result.attributed);
     const { branch } = commitToBadgeBranch({ cwd, readme, message, base });

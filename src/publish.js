@@ -54,13 +54,20 @@ export function commitToBadgeBranch({ cwd, readme, message, base, run = git }) {
   run(['config', 'user.name', COMMITTER_NAME], cwd);
   run(['config', 'user.email', COMMITTER_EMAIL], cwd);
   run(['checkout', '-B', branch], cwd);
-  run(['add', '--', readme], cwd);
-  run(['commit', '--only', '-m', message, '--', readme], cwd);
-  // the branch is machine-owned and rebuilt from base every run, so the push
-  // has to clobber whatever the previous run left behind
-  run(['push', '--force', 'origin', `HEAD:refs/heads/${branch}`], cwd);
+  try {
+    run(['add', '--', readme], cwd);
+    run(['commit', '--only', '-m', message, '--', readme], cwd);
+    // the branch is machine-owned and rebuilt from base every run, so the push
+    // has to clobber whatever the previous run left behind
+    run(['push', '--force', 'origin', `HEAD:refs/heads/${branch}`], cwd);
+  } finally {
+    // every later step in the job shares this checkout, and leaving it on the
+    // badge branch silently retargets them. Restored on the failure path too,
+    // where the caller is about to surface an error someone will debug from here.
+    run(['checkout', base], cwd);
+  }
 
-  return { base, branch };
+  return { branch };
 }
 
 /**

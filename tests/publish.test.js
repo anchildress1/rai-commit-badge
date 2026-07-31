@@ -53,19 +53,20 @@ describe('commitToBadgeBranch', () => {
     const before = git(['rev-parse', 'main'], remote);
     writeFileSync(join(local, 'README.md'), 'badged\n');
 
-    const { base, branch } = commitToBadgeBranch({
+    const { branch } = commitToBadgeBranch({
       cwd: local,
       readme: 'README.md',
       message: commitMessage(42, true),
       base: 'main',
     });
 
-    expect(base).toBe('main');
     expect(branch).toBe('rai-badge--branches--main');
+    // later steps in the job share this checkout and must not inherit the badge branch
+    expect(git(['symbolic-ref', '--short', 'HEAD'], local)).toBe('main');
     expect(git(['log', '-1', '--format=%s', branch], remote)).toBe('docs: update AI attribution badge to 42%');
     expect(git(['rev-parse', 'main'], remote)).toBe(before);
-    expect(git(['log', '-1', '--format=%an'], local)).toBe(COMMITTER_NAME);
-    expect(git(['log', '-1', '--format=%ae'], local)).toBe(COMMITTER_EMAIL);
+    expect(git(['log', '-1', '--format=%an', branch], local)).toBe(COMMITTER_NAME);
+    expect(git(['log', '-1', '--format=%ae', branch], local)).toBe(COMMITTER_EMAIL);
   });
 
   it('leaves unrelated staged changes out of the badge commit', () => {
@@ -104,6 +105,17 @@ describe('commitToBadgeBranch', () => {
     expect(git(['log', '-1', '--format=%s', branch], remote)).toBe('docs: update AI attribution badge to 42%');
     // one commit on top of base, never a chain of stale badge commits
     expect(git(['rev-list', '--count', `main..${branch}`], remote)).toBe('1');
+  });
+
+  it('restores the base checkout even when the push fails', () => {
+    const { local } = clonePair();
+    writeFileSync(join(local, 'README.md'), 'badged\n');
+    run(['remote', 'set-url', 'origin', '/nonexistent/remote.git'], local);
+
+    expect(() =>
+      commitToBadgeBranch({ cwd: local, readme: 'README.md', message: commitMessage(42, true), base: 'main' })
+    ).toThrow();
+    expect(git(['symbolic-ref', '--short', 'HEAD'], local)).toBe('main');
   });
 });
 

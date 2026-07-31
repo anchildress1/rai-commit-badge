@@ -24,6 +24,8 @@ beforeEach(() => {
   writeFileSync(summaryPath, '');
   process.env.GITHUB_STEP_SUMMARY = summaryPath;
   process.env.GITHUB_REPOSITORY = 'anchildress1/rai-commit-badge';
+  // action.yml defaults this to github.token, so a real run always carries one
+  process.env.INPUT_TOKEN = 'ghs_fixture';
   core.summary.emptyBuffer();
 });
 
@@ -32,6 +34,7 @@ afterEach(() => {
     'INPUT_SINCE',
     'INPUT_README',
     'INPUT_STYLE',
+    'INPUT_TOKEN',
     'GITHUB_STEP_SUMMARY',
     'GITHUB_WORKSPACE',
     'GITHUB_REPOSITORY',
@@ -60,6 +63,19 @@ afterAll(cleanup);
 
 const summary = () => readFileSync(summaryPath, 'utf8');
 
+/**
+ * Read the badged file off the badge branch.
+ *
+ * The run hands the checkout back on base, so the working tree holds base's copy —
+ * the badge only ever lives on the branch and in the pull request it opens.
+ */
+function badgedFile(dir, path = 'README.md') {
+  gitRun(['checkout', '-q', BADGE_BRANCH], dir);
+  const content = readFileSync(join(dir, path), 'utf8');
+  gitRun(['checkout', '-q', 'main'], dir);
+  return content;
+}
+
 /** Fixture repo wired to a bare remote, holding a README with markers. */
 function repoWithRemote(readme = README) {
   const remote = initBareRepo();
@@ -81,7 +97,7 @@ function repoWithRemote(readme = README) {
 
 describe('readInputs', () => {
   it('defaults every input', () => {
-    expect(readInputs()).toEqual({ since: undefined, readme: 'README.md', style: 'flat', token: '' });
+    expect(readInputs()).toEqual({ since: undefined, readme: 'README.md', style: 'flat', token: 'ghs_fixture' });
   });
 
   it('rejects an unknown style', () => {
@@ -119,8 +135,12 @@ describe('run', () => {
     const result = await run({ cwd: local, fetchImpl });
 
     expect(result.displayed).toBe(81);
-    const content = readFileSync(join(local, 'README.md'), 'utf8');
-    expect(content).toContain('https://img.shields.io/badge/AI%20attribution-81%25%20since%202026--01-C03070');
+    expect(badgedFile(local)).toContain(
+      'https://img.shields.io/badge/AI%20attribution-81%25%20since%202026--01-C03070'
+    );
+    // the checkout is handed back on base, so later steps in the job are unaffected
+    expect(git(['symbolic-ref', '--short', 'HEAD'], local)).toBe('main');
+    expect(readFileSync(join(local, 'README.md'), 'utf8')).toBe(README);
     expect(git(['log', '-1', '--format=%s', BADGE_BRANCH], remote)).toBe('docs: update AI attribution badge to 81%');
     // the base never takes a direct push, so its checks stay in charge
     expect(git(['rev-parse', 'main'], remote)).toBe(base);
@@ -157,7 +177,7 @@ describe('run', () => {
   it('scores a detached checkout as-is when there is nothing to publish', async () => {
     const { local: scratch } = repoWithRemote();
     await run({ cwd: scratch, fetchImpl: fakeFetch() });
-    const badged = readFileSync(join(scratch, 'README.md'), 'utf8');
+    const badged = badgedFile(scratch);
 
     const { local } = repoWithRemote(badged);
     const sha = git(['rev-parse', 'HEAD'], local);
@@ -195,7 +215,7 @@ describe('run', () => {
     // base with it already committed — as if the badge PR had already been merged
     const { local: scratch } = repoWithRemote();
     await run({ cwd: scratch, fetchImpl: fakeFetch() });
-    const badged = readFileSync(join(scratch, 'README.md'), 'utf8');
+    const badged = badgedFile(scratch);
 
     const { remote, local } = repoWithRemote(badged);
     core.summary.emptyBuffer();
@@ -234,9 +254,7 @@ describe('run', () => {
 
     await run({ cwd: local, fetchImpl: fakeFetch() });
 
-    expect(readFileSync(join(local, 'README.md'), 'utf8')).toContain(
-      'AI%20attribution-no%20attribution-9F9F9F?style=flat'
-    );
+    expect(badgedFile(local)).toContain('AI%20attribution-no%20attribution-9F9F9F?style=flat');
     expect(summary()).toContain('no attribution — no RAI footer found');
   });
 
@@ -249,7 +267,7 @@ describe('run', () => {
 
     await run({ cwd: local, fetchImpl: fakeFetch() });
 
-    const content = readFileSync(join(local, 'BADGE.md'), 'utf8');
+    const content = badgedFile(local, 'BADGE.md');
     expect(content).toContain('0%25%20since%202026--01-0875AE?style=for-the-badge');
     expect(summary()).toContain('| Window start | 2026-01-02');
   });
@@ -269,6 +287,23 @@ describe('run', () => {
     await run({ cwd: local });
 
     expect(summary()).toContain('### No markers in `MISSING.md`');
+  });
+
+  it.each(['../escaped.md', '/etc/hosts'])('refuses a readme resolving outside the workspace: %s', async (readme) => {
+    const { local } = repoWithRemote();
+    process.env.INPUT_README = readme;
+
+    await expect(run({ cwd: local })).rejects.toThrow(/outside the workspace/);
+  });
+
+  it('refuses an empty token before pushing anything', async () => {
+    const { local, remote } = repoWithRemote();
+    process.env.INPUT_TOKEN = '';
+
+    await expect(run({ cwd: local })).rejects.toThrow(/No token supplied/);
+    // the push lands before the pull request call, so this has to fail earlier
+    expect(() => git(['rev-parse', 'rai-badge--branches--main'], remote)).toThrow();
+    expect(readFileSync(join(local, 'README.md'), 'utf8')).not.toContain('img.shields.io');
   });
 
   it('fails rather than skipping the badge when the target cannot be read', async () => {
