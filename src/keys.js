@@ -16,8 +16,6 @@ export const WEIGHTS = {
   'generated-by': 0.9,
 };
 
-export const CEILING = 0.9;
-
 // Anchored at line start: `Commit-generated-by` ends with `generated-by`, and an
 // unanchored match would score it 0.90 instead of 0.05.
 export const FOOTER_PATTERN = new RegExp(String.raw`^(${AI_ATTRIBUTION_KEYS.join('|')}):[ \t]+(.*)$`, 'i');

@@ -124,17 +124,6 @@ function trimTrailingBackslashes(text) {
 }
 
 /**
- * Test a string for any of `terms`, on alphanumeric boundaries.
- *
- * @param {string} subject the text to search
- * @param {string[]} terms literal terms; regex metacharacters are escaped
- * @returns {boolean} true when any term appears
- */
-export function matchesAnyName(subject, terms) {
-  return terms.some((term) => matcher(term).test(subject));
-}
-
-/**
  * Split a footer value into its display name and email domain.
  *
  * Real trailers are messier than `Name <email>`: many carry no address at all,
