@@ -56,6 +56,9 @@ _That badge is this action, scoring itself._
 
 ## Getting Started 🚀
 
+> [!NOTE]
+> This action scores RAI footers — it has nothing to read until [rai-lint](https://github.com/anchildress1/rai-lint) is enforcing them on your commits.
+
 **1.** Mark where the badge belongs in your `README.md`:
 
 ```markdown
