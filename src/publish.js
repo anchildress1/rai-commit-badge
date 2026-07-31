@@ -18,7 +18,7 @@ const PR_BODY = [
  *
  * @param {number} displayed the displayed integer percentage
  * @param {boolean} attributed whether any footer was found
- * @returns {string} the commit subject
+ * @returns {string} the commit subject, newline-terminated
  */
 export function commitMessage(displayed, attributed) {
   const subject = attributed
@@ -138,5 +138,10 @@ export async function ensurePullRequest({
     headers: json,
     body: JSON.stringify({ title, head: branch, base, body: PR_BODY }),
   });
+  // a 2xx with no body leaves nothing to report; the branch is already pushed, so
+  // say which half landed rather than dying on a property of null
+  if (!created?.number) {
+    throw new Error(`GitHub accepted the pull request for ${branch} but returned no number — the branch is pushed.`);
+  }
   return created.number;
 }

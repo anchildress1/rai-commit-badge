@@ -151,6 +151,14 @@ describe('ensurePullRequest', () => {
     expect(JSON.parse(fetchImpl.calls[1].body)).toEqual({ title: ARGS.title });
   });
 
+  it('names the pushed branch when the create call returns no body', async () => {
+    // the push has already landed by this point, so dying on a property of null
+    // would hide which half of the publish succeeded
+    const fetchImpl = fakeFetch([{ body: [] }, { status: 204, body: null }]);
+
+    await expect(ensurePullRequest({ ...ARGS, fetchImpl })).rejects.toThrow(/branch is pushed/);
+  });
+
   it('opens one when none is open', async () => {
     const fetchImpl = fakeFetch([{ body: [] }, { body: { number: 9 } }]);
 
