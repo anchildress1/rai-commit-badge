@@ -97,28 +97,24 @@ export function resolveRenamePath(path) {
  *   files: Array<{added: number, deleted: number, path: string}>}>}
  */
 export function readCommits(cwd) {
-  const out = execFileSync('git', ['log', '--no-merges', '--numstat', '--date=short', `--format=${LOG_FORMAT}`], {
-    cwd,
-    encoding: 'utf8',
-    maxBuffer: 512 * 1024 * 1024,
-  });
+  const out = execFileSync(
+    'git',
+    // core.quotePath defaults on, and C-quotes every non-ASCII path in --numstat as
+    // `"src/caf\303\251.js"`. That literal reaches .churnignore, which matches none
+    // of it, so a repo with one accented directory scores its own build output as
+    // human churn. Never reproduces where the developer has set quotePath=false.
+    ['-c', 'core.quotePath=false', 'log', '--no-merges', '--numstat', '--date=short', `--format=${LOG_FORMAT}`],
+    { cwd, encoding: 'utf8', maxBuffer: 512 * 1024 * 1024 }
+  );
 
   const commits = [];
   for (const record of out.split(RECORD)) {
     if (!record.trim()) continue;
-    // A message carrying a raw separator would otherwise split into extra fields:
-    // the body truncates at it, losing any footer past that point, and the numstat
-    // lands in a field nothing reads, zeroing the commit's churn. Both skew the
-    // ratio silently, so bound the split and rejoin the body instead.
+    // A message carrying a raw field separator splits into extra fields: the body
+    // truncates at it, losing any footer past that point, and the numstat lands in
+    // a field nothing reads, zeroing the commit's churn. Bound the split instead.
     const parts = record.split(FIELD);
-    // too few fields means a raw record separator inside a message split one commit
-    // in two. Skipping the fragments drops that commit's churn from the ratio with
-    // no signal, so refuse to report a number built on history we know we misread.
-    if (parts.length < 5) {
-      throw new Error(
-        `Unparsable git log record — a commit message contains a raw record separator: ${JSON.stringify(record.slice(0, 80))}`
-      );
-    }
+    if (parts.length < 5) continue;
     const sha = parts[0];
     const date = parts[1];
     const author = parts[2];
@@ -138,5 +134,18 @@ export function readCommits(cwd) {
     }
     commits.push({ sha, date, author, message, files });
   }
+
+  // git permits the record separator inside a message, and there it splits one
+  // commit into two records: a forged one whose sha, date, author, footer and
+  // numstat the message's author chose outright, plus a remainder whose real churn
+  // is swallowed. Both halves are well-formed, so no per-record check sees it —
+  // only the count does. Reachable by any contributor whose PR merges unsquashed.
+  const expected = Number(git(['rev-list', '--count', '--no-merges', 'HEAD'], cwd));
+  if (commits.length !== expected) {
+    throw new Error(
+      `Read ${commits.length} commits but HEAD has ${expected} — a commit message contains a raw record separator.`
+    );
+  }
+
   return commits;
 }

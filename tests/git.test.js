@@ -149,6 +149,30 @@ describe('readCommits separator handling', () => {
 
     expect(() => readCommits(dir)).toThrow(/raw record separator/);
   });
+
+  it('refuses a message that forges a whole commit record', () => {
+    const dir = initRepo();
+    // both halves are well-formed, so only the count against git's own catches it
+    const forged = `\x1e${'0'.repeat(40)}\x1f2030-01-01\x1fEvil <e@e.com>\x1ffeat: forged\n\nGenerated-by: ${AI}\x1f999\t0\tfake.js\n`;
+    commit(dir, { message: `feat: real\n\x1fpad\n${forged}`, files: { 'real.js': 'real\n' } });
+
+    expect(() => readCommits(dir)).toThrow(/HEAD has 1/);
+  });
+
+  it('matches .churnignore against non-ASCII paths git would C-quote', () => {
+    const dir = initRepo();
+    // the runner default; without -c core.quotePath=false the path arrives as
+    // "src/caf\303\251.min.js" and every .churnignore rule misses it
+    run(['config', 'core.quotePath', 'true'], dir);
+    commit(dir, {
+      message: `feat: mixed\n\nGenerated-by: ${AI}\n`,
+      files: { 'src/café.min.js': 'a\nb\n', 'dist/café.js': 'x\ny\nz\n', 'real.js': 'real\n' },
+    });
+
+    const [parsed] = readCommits(dir);
+    expect(parsed.files.map((f) => f.path)).toContain('src/café.min.js');
+    expect(score([parsed]).churn).toBe(1);
+  });
 });
 
 describe('syncWithOrigin', () => {
