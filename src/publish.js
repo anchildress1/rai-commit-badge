@@ -40,13 +40,6 @@ export function badgeBranchName(base) {
 /**
  * Commit the badge onto a branch cut from the checked-out base and force-push it.
  *
- * `base` is resolved once by the caller and passed in rather than re-derived here via
- * `symbolic-ref`: `run()` already had to resolve it to sync `HEAD` with origin, and
- * `symbolic-ref` fails outright on a detached checkout — a case the caller already
- * knows how to fall back on (e.g. `GITHUB_BASE_REF`) but this function has no way to.
- * Re-deriving it here would also risk disagreeing with the caller's resolution if a
- * commit landed on base in between.
- *
  * @param {object} params
  * @param {string} params.cwd repository directory
  * @param {string} params.readme path to the rewritten file

@@ -36,7 +36,6 @@ afterEach(() => {
     'GITHUB_WORKSPACE',
     'GITHUB_REPOSITORY',
     'GITHUB_BASE_REF',
-    'GITHUB_REF_NAME',
   ]) {
     delete process.env[key];
   }
@@ -156,8 +155,6 @@ describe('run', () => {
   });
 
   it('scores a detached checkout as-is when there is nothing to publish', async () => {
-    // a detached HEAD (a pinned tag or SHA, or a pull_request event's merge commit) has
-    // no branch name to sync against; the no-op paths must survive that
     const { local: scratch } = repoWithRemote();
     await run({ cwd: scratch, fetchImpl: fakeFetch() });
     const badged = readFileSync(join(scratch, 'README.md'), 'utf8');
@@ -173,26 +170,24 @@ describe('run', () => {
     expect(summary()).toContain('| Badge | unchanged |');
   });
 
-  it('publishes from a detached checkout by resolving base from GITHUB_BASE_REF', async () => {
-    // the realistic detached case: a pull_request event checks out a merge commit,
-    // and Actions carries the PR's real base branch in GITHUB_BASE_REF
+  it('refuses to publish from a pull request merge commit', async () => {
     const { remote, local } = repoWithRemote();
-    const sha = git(['rev-parse', 'HEAD'], local);
-    gitRun(['checkout', '-q', sha], local);
+    gitRun(['checkout', '-q', '-b', 'feature'], local);
+    commit(local, {
+      message: `feat: pull request\n\nGenerated-by: ${AI}\n`,
+      files: { 'feature.txt': 'feature\n' },
+    });
+    gitRun(['checkout', '-q', 'main'], local);
+    gitRun(['merge', '-q', '--no-ff', '-m', 'merge pull request', 'feature'], local);
+    gitRun(['checkout', '-q', git(['rev-parse', 'HEAD'], local)], local);
     process.env.GITHUB_BASE_REF = 'main';
+    const fetchImpl = fakeFetch(8);
 
-    const result = await run({ cwd: local, fetchImpl: fakeFetch(8) });
+    await expect(run({ cwd: local, fetchImpl })).rejects.toThrow(/detached HEAD/);
 
-    expect(result.displayed).toBe(81);
-    expect(git(['log', '-1', '--format=%s', BADGE_BRANCH], remote)).toBe('docs: update AI attribution badge to 81%');
-  });
-
-  it('fails clearly when a detached checkout has no base to resolve and needs to publish', async () => {
-    const { local } = repoWithRemote();
-    const sha = git(['rev-parse', 'HEAD'], local);
-    gitRun(['checkout', '-q', sha], local);
-
-    await expect(run({ cwd: local, fetchImpl: fakeFetch() })).rejects.toThrow(/No base branch resolved/);
+    expect(fetchImpl.calls).toHaveLength(0);
+    expect(() => git(['rev-parse', BADGE_BRANCH], remote)).toThrow();
+    expect(readFileSync(join(local, 'README.md'), 'utf8')).toBe(README);
   });
 
   it('skips the commit when the badge is byte-identical', async () => {
