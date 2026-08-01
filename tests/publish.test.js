@@ -67,6 +67,10 @@ describe('commitToBadgeBranch', () => {
     expect(git(['rev-parse', 'main'], remote)).toBe(before);
     expect(git(['log', '-1', '--format=%an', branch], local)).toBe(COMMITTER_NAME);
     expect(git(['log', '-1', '--format=%ae', branch], local)).toBe(COMMITTER_EMAIL);
+    // the bot identity must not outlive the commit: a later step inheriting it would
+    // author commits this action then excludes from its own scoring
+    expect(git(['config', '--local', 'user.name'], local)).toBe('Fixture');
+    expect(git(['config', '--local', 'user.email'], local)).toBe('fixture@example.com');
   });
 
   it('leaves unrelated staged changes out of the badge commit', () => {

@@ -51,12 +51,14 @@ export function badgeBranchName(base) {
 export function commitToBadgeBranch({ cwd, readme, message, base, run = git }) {
   const branch = badgeBranchName(base);
 
-  run(['config', 'user.name', COMMITTER_NAME], cwd);
-  run(['config', 'user.email', COMMITTER_EMAIL], cwd);
   run(['checkout', '-B', branch], cwd);
   try {
     run(['add', '--', readme], cwd);
-    run(['commit', '--only', '-m', message, '--', readme], cwd);
+    // identity passed per-command rather than written to the repo config: a later
+    // step committing without setting its own would inherit the bot's, and this
+    // action excludes bot-authored commits from scoring — poisoning its own input
+    const identity = ['-c', `user.name=${COMMITTER_NAME}`, '-c', `user.email=${COMMITTER_EMAIL}`];
+    run([...identity, 'commit', '--only', '-m', message, '--', readme], cwd);
     // the branch is machine-owned and rebuilt from base every run, so the push
     // has to clobber whatever the previous run left behind
     run(['push', '--force', 'origin', `HEAD:refs/heads/${branch}`], cwd);
