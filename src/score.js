@@ -48,8 +48,11 @@ export function score(commits, { since } = {}) {
   // is indistinguishable from a measured zero. Catches a `since` past the last
   // commit and a window whose every file is excluded, both of which would
   // otherwise publish "0% AI" over history that is nothing of the sort.
+  // windowStart is kept rather than nulled: it is what separates "no footer anywhere"
+  // from "a window that caught no commits", and the summary names the wrong cause
+  // without it. The badge ignores it entirely unless `attributed` is true.
   if (churn === 0) {
-    return { attributed: false, percent: 0, displayed: 0, windowStart: null, ...counts };
+    return { attributed: false, percent: 0, displayed: 0, windowStart, ...counts };
   }
 
   const weighted = window.reduce((sum, c) => sum + (c.weight ?? 0) * c.churn, 0);

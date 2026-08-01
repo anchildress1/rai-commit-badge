@@ -32,13 +32,27 @@ describe('buildSummary', () => {
     expect(build(empty)).toContain('0 (0.0%)');
   });
 
-  it('names a missing footer when nothing was attributed at all', () => {
-    const none = { ...scored, attributed: false, attributedCommits: 0 };
+  it('names a missing footer only when no window was ever established', () => {
+    const none = { ...scored, attributed: false, windowStart: null, windowCommits: 0, attributedCommits: 0 };
     expect(build(none)).toContain('no RAI footer found in 10 commits');
   });
 
+  it('names the empty window when since overshot the history', () => {
+    // the footers exist, they are just older than the window — blaming a missing
+    // one sends someone hunting for a footer that is already there
+    const overshot = {
+      ...scored,
+      attributed: false,
+      windowStart: '2030-01-01',
+      windowCommits: 0,
+      attributedCommits: 0,
+    };
+    const out = build(overshot);
+    expect(out).toContain('no commits on or after 2030-01-01');
+    expect(out).not.toContain('no RAI footer found');
+  });
+
   it('names excluded churn when footers were found but nothing was countable', () => {
-    // blaming a missing footer here sends someone hunting for one that is present
     const noChurn = { ...scored, attributed: false, attributedCommits: 3, churn: 0 };
     const out = build(noChurn);
     expect(out).toContain('3 attributed commits');

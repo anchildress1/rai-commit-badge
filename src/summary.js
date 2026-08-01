@@ -3,6 +3,26 @@ import { MARKER_SNIPPET } from './render.js';
 const pct = (part, whole) => (whole ? `${((100 * part) / whole).toFixed(1)}%` : '0.0%');
 
 /**
+ * Name the reason a result carries no attribution.
+ *
+ * Three states land here and they send a reader in different directions: naming a
+ * missing footer for a `since` that overshot the history sets someone hunting for
+ * one that is already there.
+ *
+ * @param {object} result the scored result
+ * @returns {string} the reason, without the `no attribution — ` prefix
+ */
+function noAttributionReason(result) {
+  if (result.windowStart === null) {
+    return `no RAI footer found in ${result.commits} commits`;
+  }
+  if (result.windowCommits === 0) {
+    return `no commits on or after ${result.windowStart}`;
+  }
+  return `${result.attributedCommits} attributed commits, but no countable churn in the window`;
+}
+
+/**
  * Build the job summary markdown.
  *
  * @param {object} params
@@ -27,12 +47,7 @@ export function buildSummary({ result, badge, readme, replaced, commitState }) {
       `| Scored churn | ${result.churn} lines |`
     );
   } else {
-    // footers with no countable churn and no footers at all both land here, and
-    // conflating them sends someone hunting for a missing footer that is present
-    const reason = result.attributedCommits
-      ? `${result.attributedCommits} attributed commits, but no countable churn in the window`
-      : `no RAI footer found in ${result.commits} commits`;
-    lines.push(`| Score | no attribution — ${reason} |`);
+    lines.push(`| Score | no attribution — ${noAttributionReason(result)} |`);
   }
 
   lines.push(`| Target file | \`${readme}\` |`, `| Badge | ${commitState} |`, '');

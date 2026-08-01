@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as core from '@actions/core';
@@ -294,6 +294,29 @@ describe('run', () => {
     process.env.INPUT_README = readme;
 
     await expect(run({ cwd: local })).rejects.toThrow(/outside the workspace/);
+  });
+
+  it('refuses a readme that escapes through a symlink', async () => {
+    // resolve() is lexical, so this stays inside cwd on paper while the write follows
+    // the link out of the workspace
+    const { local } = repoWithRemote();
+    const outside = join(mkdtempSync(join(tmpdir(), 'rai-badge-outside-')), 'OUT.md');
+    writeFileSync(outside, README);
+    symlinkSync(outside, join(local, 'linked.md'));
+    process.env.INPUT_README = 'linked.md';
+
+    await expect(run({ cwd: local })).rejects.toThrow(/outside the workspace/);
+    expect(readFileSync(outside, 'utf8')).toBe(README);
+  });
+
+  it('names the empty window rather than a missing footer when since overshoots', async () => {
+    const { local } = repoWithRemote();
+    process.env.INPUT_SINCE = '2030-01-01';
+
+    await run({ cwd: local, fetchImpl: fakeFetch() });
+
+    expect(summary()).toContain('no commits on or after 2030-01-01');
+    expect(summary()).not.toContain('no RAI footer found');
   });
 
   it('refuses an empty token before pushing anything', async () => {
