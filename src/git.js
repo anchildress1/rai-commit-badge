@@ -5,6 +5,9 @@ const FIELD = '\x1f';
 
 const LOG_FORMAT = `${RECORD}%H${FIELD}%ad${FIELD}%an <%ae>${FIELD}%B${FIELD}`;
 
+/** Render a fragment of git output for an error message, bounded and escaped. */
+const quote = (record) => JSON.stringify(record.slice(0, 80));
+
 /**
  * Run git and return stdout.
  *
@@ -55,7 +58,8 @@ export function syncWithOrigin(cwd) {
   if (head.error) throw head.error;
   if (head.status === 1) return null;
   if (head.status !== 0) {
-    throw new Error(`Could not resolve HEAD in ${cwd}: ${head.stderr.trim() || `git exited ${head.status}`}`);
+    const reason = head.stderr.trim() || `git exited ${head.status}`;
+    throw new Error(`Could not resolve HEAD in ${cwd}: ${reason}`);
   }
   const branch = head.stdout.trim();
 
@@ -114,7 +118,13 @@ export function readCommits(cwd) {
     // truncates at it, losing any footer past that point, and the numstat lands in
     // a field nothing reads, zeroing the commit's churn. Bound the split instead.
     const parts = record.split(FIELD);
-    if (parts.length < 5) continue;
+    // Too few fields is the other half of a record separator injection, and skipping
+    // it defeats the count check below: the real commit's leading fragment carries no
+    // separator, so it drops out silently while a forged fragment parses as the only
+    // commit — leaving the total matching `rev-list` and the forgery undetected.
+    if (parts.length < 5) {
+      throw new Error(`Unparsable git log record — a commit message contains a raw record separator: ${quote(record)}`);
+    }
     const sha = parts[0];
     const date = parts[1];
     const author = parts[2];
