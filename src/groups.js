@@ -31,8 +31,8 @@ function groupWeight(paragraph) {
  */
 export function resolveWeight(message) {
   const weights = message
-    // a CRLF blank line is `\n\r\n`, and a `\r` left out of the class stops the
-    // split entirely: every group merges into one and the mean degrades to a max,
+    // a CRLF blank line is `\n\r\n`, and dropping either `\r?` stops the split
+    // entirely: every group merges into one and the mean degrades to a max,
     // inflating the score on Windows-authored and some UI-generated messages
     .split(/\r?\n[ \t]*\r?\n/)
     .map(groupWeight)
