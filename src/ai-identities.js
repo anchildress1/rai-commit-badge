@@ -1,6 +1,6 @@
 // Bots confirmed not to be AI authorship. Checked first and short-circuits, so a
 // handle here can never be rescued by a name or domain match.
-export const NON_AI_IDENTITIES = [
+const NON_AI_IDENTITIES = [
   'all-contributors-bot',
   'codecov[bot]',
   'dependabot-preview[bot]',
@@ -24,7 +24,7 @@ export const NON_AI_IDENTITIES = [
 // Bare `Amp`, `Oz`, `Cody`, `Devin`, `Jules`, and `Continue` are deliberately
 // absent: each is a common word or human given name, and matching them would
 // score real people as tools. Their bot handles and vendor domains cover them.
-export const AI_NAMES = [
+const AI_NAMES = [
   'aider',
   'ampcode',
   'anthropic-code-agent',
@@ -73,7 +73,7 @@ export const AI_NAMES = [
 // than an unrecognised tool name on a vendor address, which is what this catches.
 // Keep the list to domains that exist to serve a tool; a general host such as
 // `gmail.com` or `users.noreply.github.com` would misread everyone.
-export const AI_EMAIL_DOMAINS = [
+const AI_EMAIL_DOMAINS = [
   'aider.chat',
   'all-hands.dev',
   'ampcode.com',
@@ -98,14 +98,19 @@ const escape = (text) => text.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
 // hyphen, or a version number still matches on its own terms.
 const matcher = (term) => new RegExp(`(?<![a-z0-9])${escape(term)}(?![a-z0-9])`, 'i');
 
+// Tool names that are also human given names. A bare trailer still reads as the
+// tool, because most tools omit an address entirely, but once an address is
+// present the domain has to agree — `Ona Petrauskaite <ona.p@gmail.com>` is a
+// person. `Junie` carries no vendor domain here yet, so an addressed Junie reads
+// as human until one is confirmed; that is the safer of the two errors.
+const AMBIGUOUS_AI_NAMES = ['Claude', 'Junie', 'Kiro', 'Ona'];
+
 const NON_AI_MATCHERS = NON_AI_IDENTITIES.map(matcher);
 const AI_NAME_MATCHERS = AI_NAMES.map(matcher);
-// A non-vendor email disambiguates the common human name; name-only Claude
-// trailers still need to match because many tools omit an address entirely.
-const ADDRESSED_AI_NAME_MATCHERS = AI_NAMES.filter((name) => name !== 'Claude').map(matcher);
+const ADDRESSED_AI_NAME_MATCHERS = AI_NAMES.filter((name) => !AMBIGUOUS_AI_NAMES.includes(name)).map(matcher);
 const CLAUDE_PREFIX = /^Claude(?=[^a-z0-9]|$)/i;
-// Anthropic model families, so `Claude Opus 5` reads as a tool where a bare
-// `Claude` reads as a person. Tracks the family names, not the versions.
+// Anthropic product and model-family names, so `Claude Opus 5` reads as a tool
+// where a bare `Claude` reads as a person. Tracks the names, not the versions.
 const CLAUDE_TOOL_MATCHERS = ['Code', 'Fable', 'Haiku', 'Opus', 'Sonnet'].map(matcher);
 
 // anchored, and `<` excluded from the class: unanchored `<([^>]*)>` retries at
@@ -113,10 +118,6 @@ const CLAUDE_TOOL_MATCHERS = ['Code', 'Fable', 'Haiku', 'Opus', 'Sonnet'].map(ma
 const ADDRESS = /<([^<>]*)>[^<>]*$/;
 const EMAIL = /^[^\s@]+@[^\s@]+$/;
 
-/**
- * @param {string} text an address-slot value
- * @returns {string} the value without trailing backslashes
- */
 function trimTrailingBackslashes(text) {
   let end = text.length;
   while (end > 0 && text[end - 1] === '\\') end -= 1;

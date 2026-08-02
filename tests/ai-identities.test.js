@@ -68,6 +68,33 @@ describe('isKnownAiIdentity', () => {
     expect(isKnownAiIdentity('Copilot <jane@example.com>')).toBe(true);
   });
 
+  // Junie, Kiro, and Ona are human given names as well as tools, so an address has
+  // to name the vendor before the name counts
+  it.each(['Junie', 'Kiro', 'Ona', 'Kiro <hello@kiro.dev>', 'Ona <bot@ona.com>'])(
+    'matches the ambiguous name %s',
+    (value) => {
+      expect(isKnownAiIdentity(value)).toBe(true);
+    }
+  );
+
+  it.each([
+    'Junie Fischer <junie@example.com>',
+    'Kiro Tanaka <kiro@example.com>',
+    'Ona Petrauskaite <ona.p@gmail.com>',
+  ])('reads the ambiguous name %s on a non-vendor address as a person', (value) => {
+    expect(isKnownAiIdentity(value)).toBe(false);
+  });
+
+  // every other rejected value falls through for want of any AI signal, so none of
+  // them notices if the denylist stops short-circuiting. These carry both signals.
+  it.each([
+    'github-actions[bot] <noreply@anthropic.com>',
+    'Copilot <github-actions[bot]@users.noreply.github.com>',
+    'renovate[bot] <bot@cursor.com>',
+  ])('lets the non-AI denylist beat an AI signal in %s', (value) => {
+    expect(isKnownAiIdentity(value)).toBe(false);
+  });
+
   it('does not read tool names from the address', () => {
     expect(isKnownAiIdentity('Jane Doe <jane@claude.example.com>')).toBe(false);
   });
