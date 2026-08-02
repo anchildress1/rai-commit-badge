@@ -8,8 +8,10 @@ import { resolveWeight } from './groups.js';
  * The window opens at the earliest attributed commit, or at `since` when given.
  * Unattributed commits inside the window score 0 and stay in the denominator.
  * Commits authored by a known bot — release-please, this action's own committer —
- * are dropped from the commit list outright, before any churn is counted:
- * automation carries no RAI footer of its own and isn't the thing being measured.
+ * are dropped from the commit list outright, before any churn is counted, unless
+ * they carry a footer: bare automation isn't the thing being measured, but a
+ * squash merge lands under the merge bot's name and still holds the real
+ * attribution of the work it squashed.
  *
  * @param {Array<{sha: string, date: string, author: string, message: string, files: Array}>} commits
  * @param {{since?: string}} [options] `since` as `YYYY-MM-DD`
@@ -18,15 +20,17 @@ import { resolveWeight } from './groups.js';
  *   squashedCommits: number, churn: number}}
  */
 export function score(commits, { since } = {}) {
-  const attributable = commits.filter((commit) => !isKnownBotIdentity(commit.author));
-  const botCommits = commits.length - attributable.length;
-  const scored = attributable.map((commit) => {
-    const { weight, groups } = resolveWeight(commit.message);
-    return { date: commit.date, weight, groups, churn: countChurn(commit.files) };
-  });
+  // resolved before the bot filter rather than inside it, so a footer-carrying bot
+  // commit is weighed once instead of twice
+  const scored = commits
+    .map((commit) => {
+      const { weight, groups } = resolveWeight(commit.message);
+      return { date: commit.date, author: commit.author, weight, groups, churn: countChurn(commit.files) };
+    })
+    .filter((commit) => commit.weight !== null || !isKnownBotIdentity(commit.author));
+  const botCommits = commits.length - scored.length;
 
-  // a plain scan rather than sort or reduce: one pass, no mutation, no default
-  // comparator, and the empty case falls out as null without a guard
+  // scanned rather than sorted so the empty case falls out as null without a guard
   let earliest = null;
   for (const { weight, date } of scored) {
     if (weight !== null && (earliest === null || date < earliest)) earliest = date;

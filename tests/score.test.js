@@ -79,7 +79,7 @@ describe('score', () => {
     expect(result.percent).toBeCloseTo(25, 6);
   });
 
-  it('drops bot-authored commits from both sides of the ratio', () => {
+  it('drops footerless bot-authored commits from both sides of the ratio', () => {
     const BOT = 'github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>';
     const result = score([
       commit('2026-01-01', `feat: a\n\nGenerated-by: ${AI}`, src(10)),
@@ -97,6 +97,30 @@ describe('score', () => {
     expect(result.attributed).toBe(false);
     expect(result.botCommits).toBe(1);
     expect(result.commits).toBe(0);
+  });
+
+  it('scores a bot-authored commit that carries a footer', () => {
+    // a squash merge lands under the merge bot but holds the attribution of the
+    // branch it squashed, so dropping it would erase real AI churn
+    const BOT = 'mergify[bot] <37929162+mergify[bot]@users.noreply.github.com>';
+    const result = score([commit('2026-01-01', `feat: squashed\n\nGenerated-by: ${AI}`, src(100), BOT)]);
+
+    expect(result.botCommits).toBe(0);
+    expect(result.commits).toBe(1);
+    expect(result.attributedCommits).toBe(1);
+    expect(result.displayed).toBe(90);
+  });
+
+  it('drops the footerless bot commit while keeping the footered one', () => {
+    const BOT = 'github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>';
+    const result = score([
+      commit('2026-01-01', `feat: a\n\nGenerated-by: ${AI}`, src(50), BOT),
+      commit('2026-01-02', 'docs: update AI attribution badge to 42%', src(500), BOT),
+    ]);
+
+    expect(result.botCommits).toBe(1);
+    expect(result.churn).toBe(50);
+    expect(result.displayed).toBe(90);
   });
 
   it('counts squashed commits', () => {
