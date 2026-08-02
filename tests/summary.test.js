@@ -65,6 +65,12 @@ describe('buildSummary', () => {
     expect(build(scored, { replaced: 1 })).not.toContain(MARKER_SNIPPET);
   });
 
+  it('separates a missing file from a file without markers', () => {
+    // both land on replaced === 0 and they need different fixes
+    expect(build(scored, { replaced: 0, missing: true })).toContain('### `README.md` not found');
+    expect(build(scored, { replaced: 0, missing: false })).toContain('### No markers in `README.md`');
+  });
+
   it('reports the commit state and target file', () => {
     const out = build(scored, { commitState: 'pull request #7 from rai-badge--branches--main', readme: 'docs/X.md' });
     expect(out).toContain('| Badge | pull request #7 from rai-badge--branches--main |');

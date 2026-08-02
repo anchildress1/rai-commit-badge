@@ -30,10 +30,11 @@ function noAttributionReason(result) {
  * @param {string} params.badge the badge markdown
  * @param {string} params.readme the target file path
  * @param {number} params.replaced marker pairs rewritten
+ * @param {boolean} params.missing whether the target file does not exist
  * @param {string} params.commitState `no markers`, `unchanged`, or `pull request #<n> from <branch>`
  * @returns {string} markdown for `$GITHUB_STEP_SUMMARY`
  */
-export function buildSummary({ result, badge, readme, replaced, commitState }) {
+export function buildSummary({ result, badge, readme, replaced, missing, commitState }) {
   const lines = ['## RAI attribution', '', badge, '', '| | |', '|---|---|'];
 
   if (result.attributed) {
@@ -54,9 +55,13 @@ export function buildSummary({ result, badge, readme, replaced, commitState }) {
 
   if (replaced === 0) {
     lines.push(
-      `### No markers in \`${readme}\``,
+      // a file that isn't there and a file without markers need different fixes,
+      // and naming the second for the first sends someone editing nothing
+      missing ? `### \`${readme}\` not found` : `### No markers in \`${readme}\``,
       '',
-      'Paste this where the badge belongs:',
+      missing
+        ? 'Create it, or point `readme` at the file that holds the badge:'
+        : 'Paste this where the badge belongs:',
       '',
       '```markdown',
       MARKER_SNIPPET,

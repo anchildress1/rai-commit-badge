@@ -280,13 +280,23 @@ describe('run', () => {
     await expect(run({ cwd: shallow })).rejects.toThrow(/Shallow clone/);
   });
 
-  it('warns when the target file is missing', async () => {
+  it('names a missing target as missing rather than blaming its markers', async () => {
     const { local } = repoWithRemote();
     process.env.INPUT_README = 'MISSING.md';
 
     await run({ cwd: local });
 
-    expect(summary()).toContain('### No markers in `MISSING.md`');
+    expect(summary()).toContain('### `MISSING.md` not found');
+    expect(summary()).not.toContain('No markers in');
+  });
+
+  it('names a present file with no markers as missing markers', async () => {
+    const { local } = repoWithRemote('# Fixture\n\nNo markers here.\n');
+
+    await run({ cwd: local });
+
+    expect(summary()).toContain('### No markers in `README.md`');
+    expect(summary()).not.toContain('not found');
   });
 
   it.each(['../escaped.md', '/etc/hosts'])('refuses a readme resolving outside the workspace: %s', async (readme) => {
