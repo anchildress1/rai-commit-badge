@@ -73,7 +73,7 @@ const AI_NAMES = [
 // than an unrecognised tool name on a vendor address, which is what this catches.
 // Keep the list to domains that exist to serve a tool; a general host such as
 // `gmail.com` or `users.noreply.github.com` would misread everyone.
-const AI_EMAIL_DOMAINS = [
+const AI_EMAIL_DOMAINS = new Set([
   'aider.chat',
   'all-hands.dev',
   'ampcode.com',
@@ -90,7 +90,7 @@ const AI_EMAIL_DOMAINS = [
   // Warp signs as `Oz <oz-agent@warp.dev>` — the handle lives in the address, so
   // the display name alone never identifies it
   'warp.dev',
-];
+]);
 
 const escape = (text) => text.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
@@ -103,11 +103,11 @@ const matcher = (term) => new RegExp(`(?<![a-z0-9])${escape(term)}(?![a-z0-9])`,
 // present the domain has to agree — `Ona Petrauskaite <ona.p@gmail.com>` is a
 // person. `Junie` carries no vendor domain here yet, so an addressed Junie reads
 // as human until one is confirmed; that is the safer of the two errors.
-const AMBIGUOUS_AI_NAMES = ['Claude', 'Junie', 'Kiro', 'Ona'];
+const AMBIGUOUS_AI_NAMES = new Set(['Claude', 'Junie', 'Kiro', 'Ona']);
 
 const NON_AI_MATCHERS = NON_AI_IDENTITIES.map(matcher);
 const AI_NAME_MATCHERS = AI_NAMES.map(matcher);
-const ADDRESSED_AI_NAME_MATCHERS = AI_NAMES.filter((name) => !AMBIGUOUS_AI_NAMES.includes(name)).map(matcher);
+const ADDRESSED_AI_NAME_MATCHERS = AI_NAMES.filter((name) => !AMBIGUOUS_AI_NAMES.has(name)).map(matcher);
 const CLAUDE_PREFIX = /^Claude(?=[^a-z0-9]|$)/i;
 // Anthropic product and model-family names, so `Claude Opus 5` reads as a tool
 // where a bare `Claude` reads as a person. Tracks the names, not the versions.
@@ -186,7 +186,7 @@ export function isKnownAiIdentity(value) {
   // a parent domain counts, so `bot.example.com` resolves through `example.com`
   const labels = domain.split('.');
   for (let i = 0; i < labels.length - 1; i += 1) {
-    if (AI_EMAIL_DOMAINS.includes(labels.slice(i).join('.'))) return true;
+    if (AI_EMAIL_DOMAINS.has(labels.slice(i).join('.'))) return true;
   }
 
   return false;

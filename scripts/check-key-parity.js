@@ -23,7 +23,8 @@ const ours = AI_ATTRIBUTION_KEYS;
 
 // compared as sets: the pattern is anchored and no key prefixes another, so a
 // reorder upstream is meaningless here and would otherwise red-line every open PR
-if (upstream.toSorted().join(',') !== ours.toSorted().join(',')) {
+const ourKeys = new Set(ours);
+if (upstream.length !== ourKeys.size || !upstream.every((key) => ourKeys.has(key))) {
   console.error('Footer key sets have drifted.');
   console.error(`  rai-lint:         ${upstream.join(', ')}`);
   console.error(`  rai-commit-badge: ${ours.join(', ')}`);

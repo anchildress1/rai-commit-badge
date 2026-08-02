@@ -112,7 +112,7 @@ export function unquotePath(path) {
   if (path.length < 2 || !path.startsWith('"') || !path.endsWith('"')) return path;
   return path.slice(1, -1).replaceAll(/\\([0-7]{3}|.)/g, (whole, code) =>
     // octal is per byte, and quotePath=false leaves only control bytes escaped
-    code.length === 3 ? String.fromCharCode(parseInt(code, 8)) : (C_ESCAPES[code] ?? whole)
+    code.length === 3 ? String.fromCodePoint(Number.parseInt(code, 8)) : (C_ESCAPES[code] ?? whole)
   );
 }
 
