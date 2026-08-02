@@ -108,7 +108,7 @@ jobs:
 The badge arrives as a pull request on `rai-badge--branches--<base>`, rebuilt from the base each run, so it always holds one commit. Your checkout is handed back on the base branch afterwards — the badge lives on the branch and in the PR, never in your working tree. The bot identity is passed to that one commit rather than written to your git config, so later steps in the same job keep their own author and branch.
 
 > [!NOTE]
-> The PR is opened with `github.token` by default, and GitHub does not run workflows on pull requests that token creates. If you want CI to run on the badge PR, pass a PAT as `token:` instead.
+> The PR is opened with `github.token` by default, and workflow runs on a pull request that token creates start in an approval-required state — someone with write access clicks **Approve workflows to run**. If you want checks to start on their own, pass a PAT as `token:` instead. See [Which token](#which-token).
 
 ---
 
@@ -183,7 +183,7 @@ Each footer carries a weight derived from what it declares:
 | `Co-authored-by`      | Roughly 50/50        | 0.50   |
 | `Generated-by`        | Majority AI          | 0.90   |
 
-Commits are weighted by lines changed. Lockfiles, dependency trees, build output, and minified assets are excluded — so is any commit authored by a known bot (release-please, this action's own committer), since automation has no attribution to declare.
+Commits are weighted by lines changed. Lockfiles, dependency trees, build output, and minified assets are excluded — so is any footerless commit authored by a known bot (release-please, this action's own committer), since bare automation has no attribution to declare. A bot commit that carries a footer still counts — a squash merge lands under the merge bot's name and holds the attribution of everything it squashed.
 
 `Generated-by` is the heaviest footer, so a fully AI-generated history tops out at 90%.
 

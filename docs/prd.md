@@ -70,7 +70,8 @@ Measured across 24 repos, exclusions account for a **median 33% of churn**, rang
 Scoring starts at the earliest RAI footer. Everything before is excluded.
 
 - Unattributed commits inside the window score 0 and stay in the denominator
-- Commits authored by a known bot (release-please, this action's own committer) are excluded from both sides of the ratio entirely — not scored as 0, not counted at all
+- Footerless commits authored by a known bot (release-please, this action's own committer) are excluded from both sides of the ratio entirely — not scored as 0, not counted at all
+- A bot commit that _does_ carry a footer is scored normally: a squash merge lands under the merge bot's name while holding the real attribution of the work it squashed
 - `since` input overrides auto-detection
 - Zero footers and zero `since` → badge reads `no attribution` in grey
 - A window with no countable churn reads `no attribution` too — a `since` past the last commit, or every changed file excluded. Reporting `0%` there would claim a measurement that never happened
@@ -100,6 +101,7 @@ The average is size-blind. README documents the cost, without prescribing a merg
 
 - Conflict-resolution edits living only in a merge commit are invisible
 - Rebase and cherry-pick can double-count churn
+- A filename containing a literal `=>` is ambiguous against the rename form `--numstat` prints, so the wrong side may be tested for exclusion. `--numstat -z` would close it by delimiting renames with NUL instead, at the cost of reworking the record parser — not worth it for a filename nobody writes
 
 ---
 
@@ -198,7 +200,7 @@ CI fetches rai-lint's `rules.py` and asserts the footer key sets match.
 
 **Phase 2** — scope undefined. Agreed requirement: "assume human" needs to get smarter.
 
-- Bot-authored commits (release-please, this action's own committer) are excluded from both sides of the ratio — done.
+- Footerless bot-authored commits (release-please, this action's own committer) are excluded from both sides of the ratio — done.
 
 ## Success criteria
 
