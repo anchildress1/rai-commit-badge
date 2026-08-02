@@ -3,7 +3,15 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { git, isShallow, readCommits, resolveRenamePath, syncWithOrigin, unquotePath } from '../src/git.js';
+import {
+  git,
+  isShallow,
+  readCommits,
+  rejectNulCommitObjects,
+  resolveRenamePath,
+  syncWithOrigin,
+  unquotePath,
+} from '../src/git.js';
 import { score } from '../src/score.js';
 import { cleanup, commit, initBareRepo, initRepo, run } from './helpers.js';
 
@@ -215,6 +223,38 @@ describe('readCommits separator handling', () => {
     run(['update-ref', 'HEAD', sha], dir);
 
     expect(() => readCommits(dir)).toThrow(/contains a raw NUL byte/);
+  });
+
+  it('walks more objects than one batch holds', () => {
+    // the batching exists so a long history does not buffer every message at once;
+    // a repo past the batch size proves the slices rejoin instead of dropping objects
+    const dir = initRepo();
+    for (let i = 0; i < 3; i += 1) commit(dir, { message: `feat: ${i}`, files: { 'a.js': `${i}\n` } });
+    const shas = git(['rev-list', 'HEAD'], dir).split('\n');
+
+    expect(() => rejectNulCommitObjects(dir, [...shas, ...shas, ...shas])).not.toThrow();
+  });
+
+  it('accepts a repository with nothing to check', () => {
+    expect(() => rejectNulCommitObjects(initRepo(), [])).not.toThrow();
+  });
+
+  it('names the object when cat-file answers with something else', () => {
+    const dir = initRepo();
+    commit(dir, { message: 'feat: base', files: { 'real.js': 'real\n' } });
+    const missing = '0'.repeat(40);
+
+    // a sha the parse invented rather than read: cat-file says `missing`, and blaming
+    // the sha is what points at the log parse instead of at git
+    expect(() => rejectNulCommitObjects(dir, [missing])).toThrow(new RegExp(`Expected a commit object for ${missing}`));
+  });
+
+  it('rejects a sha that names something other than a commit', () => {
+    const dir = initRepo();
+    commit(dir, { message: 'feat: base', files: { 'real.js': 'real\n' } });
+    const tree = git(['rev-parse', 'HEAD^{tree}'], dir);
+
+    expect(() => rejectNulCommitObjects(dir, [tree])).toThrow(/Expected a commit object/);
   });
 
   it('matches .churnignore against paths git C-quotes regardless of quotePath', () => {

@@ -101,7 +101,7 @@ The average is size-blind. README documents the cost, without prescribing a merg
 
 - Conflict-resolution edits living only in a merge commit are invisible
 - Rebase and cherry-pick can double-count churn
-- A filename containing a literal `=>` is ambiguous against the rename form `--numstat` prints, so the wrong side may be tested for exclusion. `--numstat -z` would close it by delimiting renames with NUL instead, at the cost of reworking the record parser — not worth it for a filename nobody writes
+- A filename containing a literal `=>` is ambiguous against the rename form `--numstat` prints, so the wrong side may be tested for exclusion. `--numstat -z` delimits renames with NUL instead, which would close it — but NUL is what frames the log records, so adopting `-z` means giving the two jobs separate delimiters and reworking both parsers. Not worth it for a filename nobody writes
 
 ---
 
@@ -179,8 +179,9 @@ The action would rather fail than publish a number it cannot stand behind:
 
 - Sync with `origin` before scoring, and refuse on a dirty tree or a checkout holding commits `origin` lacks
 - Score a detached `HEAD` as-is, but refuse to publish from one
-- Refuse handcrafted commit objects containing NUL before Git can truncate their metadata
+- Refuse handcrafted commit objects containing NUL: `%B` stops at the first one, so the message scored is a prefix of the message a reviewer reads, and no count or framing check can see the difference
 - Refuse an empty `token` before anything is pushed, not at the pull request call after
+- Fail when the base checkout cannot be restored, even once the badge has pushed — every later step in the job shares that checkout, and leaving it on the badge branch retargets them silently. A failure the publication survived is still a failure someone has to see
 
 ### Marketplace
 

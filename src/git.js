@@ -3,14 +3,35 @@ import { execFileSync, spawnSync } from 'node:child_process';
 const FIELD = '\0';
 const FIELDS_PER_COMMIT = 5;
 
-// Git's ordinary writers reject NUL, so it is safe framing for ordinary history.
-// readCommits separately rejects handcrafted objects that smuggle one in.
+// NUL is unforgeable framing because `%B` stops at the first one: a message can never
+// inject a field, whatever it holds. The cost is that a NUL truncates the message
+// instead, invisibly — which is what rejectNulCommitObjects exists to catch.
 const LOG_FORMAT = '%x00%H%x00%ad%x00%an <%ae>%x00%B%x00';
 
-/** Reject objects Git's pretty formatter would silently truncate at a raw NUL. */
-function rejectNulCommitObjects(cwd, shas) {
-  if (shas.length === 0) return;
+// Objects are read in slices rather than one call: history is walked in full, and a
+// single batch holds every commit message in memory at once — a large repository
+// hits the buffer ceiling and reports ENOBUFS instead of whatever it found.
+const BATCH_SIZE = 1000;
 
+/**
+ * Reject commit objects holding a raw NUL.
+ *
+ * `%B` stops at the first NUL, so a handcrafted object truncates to its prefix while
+ * the field and commit counts both stay correct — no framing check can see it, and
+ * every footer past the NUL is dropped from the score in silence.
+ *
+ * @param {string} cwd repository directory
+ * @param {string[]} shas every sha parsed out of the log, in log order
+ * @throws {Error} on a NUL-bearing object, or on cat-file output that does not line
+ *   up with `shas` — which is itself evidence the log parse went wrong
+ */
+export function rejectNulCommitObjects(cwd, shas) {
+  for (let start = 0; start < shas.length; start += BATCH_SIZE) {
+    rejectNulInBatch(cwd, shas.slice(start, start + BATCH_SIZE));
+  }
+}
+
+function rejectNulInBatch(cwd, shas) {
   const batch = execFileSync('git', ['cat-file', '--batch'], {
     cwd,
     input: `${shas.join('\n')}\n`,
@@ -22,7 +43,11 @@ function rejectNulCommitObjects(cwd, shas) {
     const headerEnd = batch.indexOf(0x0a, offset);
     const header = headerEnd === -1 ? '' : batch.subarray(offset, headerEnd).toString('utf8');
     const match = /^([0-9a-f]+) commit (\d+)$/.exec(header);
-    if (!match || match[1] !== expectedSha) throw new Error('Unparsable git cat-file output.');
+    if (!match || match[1] !== expectedSha) {
+      throw new Error(
+        `Expected a commit object for ${expectedSha} but git cat-file answered ${JSON.stringify(header)}`
+      );
+    }
 
     const bodyStart = headerEnd + 1;
     const bodyEnd = bodyStart + Number(match[2]);
@@ -30,11 +55,15 @@ function rejectNulCommitObjects(cwd, shas) {
     if (nul !== -1 && nul < bodyEnd) {
       throw new Error(`Commit ${expectedSha} contains a raw NUL byte — refusing to score truncated history.`);
     }
-    if (bodyEnd >= batch.length || batch[bodyEnd] !== 0x0a) throw new Error('Unparsable git cat-file output.');
+    if (bodyEnd >= batch.length || batch[bodyEnd] !== 0x0a) {
+      throw new Error(`git cat-file gave a short object for ${expectedSha} — refusing to score partial history.`);
+    }
     offset = bodyEnd + 1;
   }
 
-  if (offset !== batch.length) throw new Error('Unparsable git cat-file output.');
+  if (offset !== batch.length) {
+    throw new Error(`git cat-file returned ${batch.length - offset} trailing bytes for ${shas.length} objects.`);
+  }
 }
 
 /**
@@ -176,13 +205,13 @@ export function readCommits(cwd) {
 
     const files = [];
     for (const line of tail.split('\n')) {
-      const fields = line.split('\t');
+      const columns = line.split('\t');
       // binary files render as `-\t-\tpath` and contribute no churn
-      if (fields.length !== 3 || fields[0] === '-') continue;
+      if (columns.length !== 3 || columns[0] === '-') continue;
       files.push({
-        added: Number(fields[0]),
-        deleted: Number(fields[1]),
-        path: unquotePath(resolveRenamePath(fields[2])),
+        added: Number(columns[0]),
+        deleted: Number(columns[1]),
+        path: unquotePath(resolveRenamePath(columns[2])),
       });
     }
     commits.push({ sha, date, author, message, files });

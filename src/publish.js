@@ -46,13 +46,13 @@ export function badgeBranchName(base) {
  * @param {string} params.path repository-relative path to the rewritten file
  * @param {string} params.message the commit message
  * @param {string} params.base the branch the badge is measured from
+ * @param {boolean} params.wasTracked whether git knew the badge path before it was rewritten,
+ *   read by the caller ahead of its own write
  * @param {(args: string[], cwd: string) => string} [params.run] git runner, injected for tests
- * @param {boolean} [params.wasTracked] whether the badge path existed in HEAD before it was rewritten
  * @returns {{branch: string}} the branch the badge landed on
  */
-export function commitToBadgeBranch({ cwd, path, message, base, run = git, wasTracked }) {
+export function commitToBadgeBranch({ cwd, path, message, base, wasTracked, run = git }) {
   const branch = badgeBranchName(base);
-  const tracked = wasTracked ?? Boolean(run(['ls-files', '--stage', '--', path], cwd));
   let operationError = null;
   let committed = false;
 
@@ -72,7 +72,7 @@ export function commitToBadgeBranch({ cwd, path, message, base, run = git, wasTr
     operationError = error;
     if (!committed) {
       try {
-        const restore = tracked
+        const restore = wasTracked
           ? ['restore', '--source=HEAD', '--staged', '--worktree', '--', path]
           : ['restore', '--staged', '--', path];
         run(restore, cwd);

@@ -58,6 +58,7 @@ describe('commitToBadgeBranch', () => {
       path: 'README.md',
       message: commitMessage(42, true),
       base: 'main',
+      wasTracked: true,
     });
 
     expect(branch).toBe('rai-badge--branches--main');
@@ -84,6 +85,7 @@ describe('commitToBadgeBranch', () => {
       path: 'README.md',
       message: commitMessage(42, true),
       base: 'main',
+      wasTracked: true,
     });
 
     expect(git(['show', '--name-only', '--format=', branch], remote)).toBe('README.md');
@@ -98,12 +100,19 @@ describe('commitToBadgeBranch', () => {
       path: 'README.md',
       message: commitMessage(11, true),
       base: 'main',
+      wasTracked: true,
     });
     const stale = git(['rev-parse', branch], remote);
 
     run(['checkout', '-q', 'main'], local);
     writeFileSync(join(local, 'README.md'), 'second\n');
-    commitToBadgeBranch({ cwd: local, path: 'README.md', message: commitMessage(42, true), base: 'main' });
+    commitToBadgeBranch({
+      cwd: local,
+      path: 'README.md',
+      message: commitMessage(42, true),
+      base: 'main',
+      wasTracked: true,
+    });
 
     expect(git(['rev-parse', branch], remote)).not.toBe(stale);
     expect(git(['log', '-1', '--format=%s', branch], remote)).toBe('docs: update AI attribution badge to 42%');
@@ -114,39 +123,57 @@ describe('commitToBadgeBranch', () => {
   it('surfaces the push failure when restoring the checkout also fails', () => {
     // the finally throwing over the in-flight error would bury the half worth debugging
     const runner = (args) => {
-      if (args[0] === 'ls-files') return 'tracked';
       if (args.includes('push')) throw new Error('remote rejected refs/heads/rai-badge');
       if (args[0] === 'checkout' && args[1] === 'main') throw new Error('pathspec main did not match');
       return '';
     };
 
     expect(() =>
-      commitToBadgeBranch({ cwd: '/nowhere', path: 'README.md', message: 'm\n', base: 'main', run: runner })
+      commitToBadgeBranch({
+        cwd: '/nowhere',
+        path: 'README.md',
+        message: 'm\n',
+        base: 'main',
+        wasTracked: true,
+        run: runner,
+      })
     ).toThrow(/remote rejected/);
   });
 
   it('surfaces a checkout failure after the badge was pushed', () => {
     const runner = (args) => {
-      if (args[0] === 'ls-files') return 'tracked';
       if (args[0] === 'checkout' && args[1] === 'main') throw new Error('pathspec main did not match');
       return '';
     };
 
     expect(() =>
-      commitToBadgeBranch({ cwd: '/nowhere', path: 'README.md', message: 'm\n', base: 'main', run: runner })
+      commitToBadgeBranch({
+        cwd: '/nowhere',
+        path: 'README.md',
+        message: 'm\n',
+        base: 'main',
+        wasTracked: true,
+        run: runner,
+      })
     ).toThrow(/pathspec main did not match/);
   });
 
   it('preserves the commit failure when badge cleanup also fails', () => {
     const runner = (args) => {
-      if (args[0] === 'ls-files') return 'tracked';
       if (args.includes('commit')) throw new Error('commit hook rejected badge');
       if (args[0] === 'restore') throw new Error('could not restore README');
       return '';
     };
 
     expect(() =>
-      commitToBadgeBranch({ cwd: '/nowhere', path: 'README.md', message: 'm\n', base: 'main', run: runner })
+      commitToBadgeBranch({
+        cwd: '/nowhere',
+        path: 'README.md',
+        message: 'm\n',
+        base: 'main',
+        wasTracked: true,
+        run: runner,
+      })
     ).toThrow(/commit hook rejected badge/);
   });
 
@@ -158,7 +185,13 @@ describe('commitToBadgeBranch', () => {
     writeFileSync(join(local, '.git', 'hooks', 'pre-commit'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
 
     expect(() =>
-      commitToBadgeBranch({ cwd: local, path: 'README.md', message: commitMessage(42, true), base: 'main' })
+      commitToBadgeBranch({
+        cwd: local,
+        path: 'README.md',
+        message: commitMessage(42, true),
+        base: 'main',
+        wasTracked: true,
+      })
     ).toThrow();
 
     expect(git(['symbolic-ref', '--short', 'HEAD'], local)).toBe('main');
@@ -174,7 +207,13 @@ describe('commitToBadgeBranch', () => {
     writeFileSync(join(local, '.git', 'hooks', 'pre-commit'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
 
     expect(() =>
-      commitToBadgeBranch({ cwd: local, path: 'README.md', message: commitMessage(42, true), base: 'main' })
+      commitToBadgeBranch({
+        cwd: local,
+        path: 'README.md',
+        message: commitMessage(42, true),
+        base: 'main',
+        wasTracked: false,
+      })
     ).toThrow();
 
     expect(readFileSync(join(local, 'README.md'), 'utf8')).toBe('original\n');
@@ -187,7 +226,13 @@ describe('commitToBadgeBranch', () => {
     run(['remote', 'set-url', 'origin', '/nonexistent/remote.git'], local);
 
     expect(() =>
-      commitToBadgeBranch({ cwd: local, path: 'README.md', message: commitMessage(42, true), base: 'main' })
+      commitToBadgeBranch({
+        cwd: local,
+        path: 'README.md',
+        message: commitMessage(42, true),
+        base: 'main',
+        wasTracked: true,
+      })
     ).toThrow();
     expect(git(['symbolic-ref', '--short', 'HEAD'], local)).toBe('main');
   });
