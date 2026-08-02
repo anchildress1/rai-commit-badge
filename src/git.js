@@ -93,6 +93,29 @@ export function resolveRenamePath(path) {
   return arrow ? arrow[2] : path;
 }
 
+// `\a` has no JS escape, and `"` and `\` are the two git emits most often.
+const C_ESCAPES = { a: '\x07', b: '\b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '"': '"', '\\': '\\' };
+
+/**
+ * Decode a C-quoted `--numstat` path.
+ *
+ * `core.quotePath=false` stops git escaping non-ASCII, but a path holding a quote,
+ * a backslash, or a control character still arrives wrapped and escaped. Left encoded
+ * it matches no `.churnignore` rule, so excluded build output counts as real churn and
+ * deflates the score. Renames quote each side separately, so this runs after the
+ * rename split — the braced form git uses for a shared prefix is never quoted.
+ *
+ * @param {string} path a numstat path, quoted or not
+ * @returns {string} the decoded path, returned unchanged when it was not quoted
+ */
+export function unquotePath(path) {
+  if (path.length < 2 || !path.startsWith('"') || !path.endsWith('"')) return path;
+  return path.slice(1, -1).replaceAll(/\\([0-7]{3}|.)/g, (whole, code) =>
+    // octal is per byte, and quotePath=false leaves only control bytes escaped
+    code.length === 3 ? String.fromCharCode(parseInt(code, 8)) : (C_ESCAPES[code] ?? whole)
+  );
+}
+
 /**
  * Read every non-merge commit reachable from HEAD.
  *
@@ -104,9 +127,11 @@ export function readCommits(cwd) {
   const out = execFileSync(
     'git',
     // core.quotePath defaults on, and C-quotes every non-ASCII path in --numstat as
-    // `"src/caf\303\251.js"`. That literal reaches .churnignore, which matches none
-    // of it, so a repo with one accented directory scores its own build output as
-    // human churn. Never reproduces where the developer has set quotePath=false.
+    // `"src/caf\303\251.js"`. That literal reaches .churnignore, which matches none of
+    // it, so a repo with one accented directory counts its own build output as scored
+    // churn. Never reproduces where the developer has set quotePath=false. Paths holding
+    // a quote, a backslash, or a control byte stay quoted regardless — unquotePath
+    // decodes those.
     ['-c', 'core.quotePath=false', 'log', '--no-merges', '--numstat', '--date=short', `--format=${LOG_FORMAT}`],
     { cwd, encoding: 'utf8', maxBuffer: 512 * 1024 * 1024 }
   );
@@ -114,9 +139,10 @@ export function readCommits(cwd) {
   const commits = [];
   for (const record of out.split(RECORD)) {
     if (!record.trim()) continue;
-    // A message carrying a raw field separator splits into extra fields: the body
-    // truncates at it, losing any footer past that point, and the numstat lands in
-    // a field nothing reads, zeroing the commit's churn. Bound the split instead.
+    // A message carrying a raw field separator splits into extra fields. Rejoining the
+    // middle ones below is what keeps the body whole; a bounded split would truncate it
+    // instead, losing any footer past the separator and pushing the numstat into a field
+    // nothing reads, zeroing the commit's churn.
     const parts = record.split(FIELD);
     // Too few fields is the other half of a record separator injection, and skipping
     // it defeats the count check below: the real commit's leading fragment carries no
@@ -139,7 +165,7 @@ export function readCommits(cwd) {
       files.push({
         added: Number(fields[0]),
         deleted: Number(fields[1]),
-        path: resolveRenamePath(fields[2]),
+        path: unquotePath(resolveRenamePath(fields[2])),
       });
     }
     commits.push({ sha, date, author, message, files });
@@ -148,8 +174,9 @@ export function readCommits(cwd) {
   // git permits the record separator inside a message, and there it splits one
   // commit into two records: a forged one whose sha, date, author, footer and
   // numstat the message's author chose outright, plus a remainder whose real churn
-  // is swallowed. Both halves are well-formed, so no per-record check sees it —
-  // only the count does. Reachable by any contributor whose PR merges unsquashed.
+  // is swallowed. Padding a field separator into the message makes both halves
+  // well-formed enough to clear the check above, so only the count catches it.
+  // Reachable by any contributor whose PR merges unsquashed.
   const expected = Number(git(['rev-list', '--count', '--no-merges', 'HEAD'], cwd));
   if (commits.length !== expected) {
     throw new Error(

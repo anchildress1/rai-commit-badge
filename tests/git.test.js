@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { git, isShallow, readCommits, resolveRenamePath, syncWithOrigin } from '../src/git.js';
+import { git, isShallow, readCommits, resolveRenamePath, syncWithOrigin, unquotePath } from '../src/git.js';
 import { score } from '../src/score.js';
 import { cleanup, commit, initBareRepo, initRepo, run } from './helpers.js';
 
@@ -27,6 +27,30 @@ describe('resolveRenamePath', () => {
 
   it('leaves an ordinary path alone', () => {
     expect(resolveRenamePath('src/index.js')).toBe('src/index.js');
+  });
+});
+
+describe('unquotePath', () => {
+  it.each([
+    ['"dist/a\\"b.js"', 'dist/a"b.js'],
+    ['"dist/back\\\\slash.js"', 'dist/back\\slash.js'],
+    ['"dist/tab\\tname.js"', 'dist/tab\tname.js'],
+    ['"dist/nl\\nname.js"', 'dist/nl\nname.js'],
+    ['"dist/soh\\001name.js"', 'dist/soh\x01name.js'],
+  ])('decodes %s', (raw, decoded) => {
+    expect(unquotePath(raw)).toBe(decoded);
+  });
+
+  it.each(['dist/plain.js', 'dist/café.js', 'dist/space name.js', "dist/sq'name.js"])(
+    'leaves the unquoted %s alone',
+    (path) => {
+      expect(unquotePath(path)).toBe(path);
+    }
+  );
+
+  it('leaves an escape it does not recognise intact', () => {
+    // dropping the backslash would invent a path that never existed
+    expect(unquotePath('"dist/od\\qname.js"')).toBe('dist/od\\qname.js');
   });
 });
 
@@ -157,6 +181,38 @@ describe('readCommits separator handling', () => {
     commit(dir, { message: `feat: real\n\x1fpad\n${forged}`, files: { 'real.js': 'real\n' } });
 
     expect(() => readCommits(dir)).toThrow(/HEAD has 1/);
+  });
+
+  it('matches .churnignore against paths git C-quotes regardless of quotePath', () => {
+    const dir = initRepo();
+    // core.quotePath=false only stops non-ASCII escaping; a quote or a backslash in
+    // the path stays wrapped, and the encoded literal matches no .churnignore rule
+    commit(dir, {
+      message: `feat: quoted\n\nGenerated-by: ${AI}\n`,
+      files: { 'dist/a"b.js': 'a\nb\n', 'dist/back\\slash.js': 'c\nd\n', 'real.js': 'real\n' },
+    });
+
+    const [parsed] = readCommits(dir);
+    expect(parsed.files.map((f) => f.path)).toEqual(
+      expect.arrayContaining(['dist/a"b.js', 'dist/back\\slash.js', 'real.js'])
+    );
+    expect(score([parsed]).churn).toBe(1);
+  });
+
+  it('excludes a file renamed into an excluded path, and counts one renamed out', () => {
+    const dir = initRepo();
+    commit(dir, {
+      message: `feat: seed\n\nGenerated-by: ${AI}\n`,
+      files: { 'src/moved-out.js': 'a\n', 'dist/moved-in.js': 'b\n' },
+    });
+    run(['mv', 'src/moved-out.js', 'dist/moved-out.js'], dir);
+    run(['mv', 'dist/moved-in.js', 'src/moved-in.js'], dir);
+    run(['commit', '-q', '--no-verify', '-m', `refactor: swap\n\nGenerated-by: ${AI}\n`], dir);
+
+    const paths = readCommits(dir)[0].files.map((f) => f.path);
+    // the post-rename path decides, so the destination is what .churnignore sees
+    expect(paths).toContain('dist/moved-out.js');
+    expect(paths).toContain('src/moved-in.js');
   });
 
   it('matches .churnignore against non-ASCII paths git would C-quote', () => {
