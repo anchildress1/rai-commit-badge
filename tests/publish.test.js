@@ -55,7 +55,7 @@ describe('commitToBadgeBranch', () => {
 
     const { branch } = commitToBadgeBranch({
       cwd: local,
-      readme: 'README.md',
+      path: 'README.md',
       message: commitMessage(42, true),
       base: 'main',
     });
@@ -81,7 +81,7 @@ describe('commitToBadgeBranch', () => {
 
     const { branch } = commitToBadgeBranch({
       cwd: local,
-      readme: 'README.md',
+      path: 'README.md',
       message: commitMessage(42, true),
       base: 'main',
     });
@@ -95,7 +95,7 @@ describe('commitToBadgeBranch', () => {
     writeFileSync(join(local, 'README.md'), 'first\n');
     const { branch } = commitToBadgeBranch({
       cwd: local,
-      readme: 'README.md',
+      path: 'README.md',
       message: commitMessage(11, true),
       base: 'main',
     });
@@ -103,12 +103,25 @@ describe('commitToBadgeBranch', () => {
 
     run(['checkout', '-q', 'main'], local);
     writeFileSync(join(local, 'README.md'), 'second\n');
-    commitToBadgeBranch({ cwd: local, readme: 'README.md', message: commitMessage(42, true), base: 'main' });
+    commitToBadgeBranch({ cwd: local, path: 'README.md', message: commitMessage(42, true), base: 'main' });
 
     expect(git(['rev-parse', branch], remote)).not.toBe(stale);
     expect(git(['log', '-1', '--format=%s', branch], remote)).toBe('docs: update AI attribution badge to 42%');
     // one commit on top of base, never a chain of stale badge commits
     expect(git(['rev-list', '--count', `main..${branch}`], remote)).toBe('1');
+  });
+
+  it('surfaces the push failure when restoring the checkout also fails', () => {
+    // the finally throwing over the in-flight error would bury the half worth debugging
+    const runner = (args) => {
+      if (args.includes('push')) throw new Error('remote rejected refs/heads/rai-badge');
+      if (args[0] === 'checkout' && args[1] === 'main') throw new Error('pathspec main did not match');
+      return '';
+    };
+
+    expect(() =>
+      commitToBadgeBranch({ cwd: '/nowhere', path: 'README.md', message: 'm\n', base: 'main', run: runner })
+    ).toThrow(/remote rejected/);
   });
 
   it('restores the base checkout even when the push fails', () => {
@@ -117,7 +130,7 @@ describe('commitToBadgeBranch', () => {
     run(['remote', 'set-url', 'origin', '/nonexistent/remote.git'], local);
 
     expect(() =>
-      commitToBadgeBranch({ cwd: local, readme: 'README.md', message: commitMessage(42, true), base: 'main' })
+      commitToBadgeBranch({ cwd: local, path: 'README.md', message: commitMessage(42, true), base: 'main' })
     ).toThrow();
     expect(git(['symbolic-ref', '--short', 'HEAD'], local)).toBe('main');
   });
@@ -137,7 +150,7 @@ describe('ensurePullRequest', () => {
   function fakeFetch(bodies) {
     const calls = [];
     const impl = async (url, init = {}) => {
-      calls.push({ url, method: init.method ?? 'GET', body: init.body });
+      calls.push({ url, method: init.method ?? 'GET', body: init.body, headers: init.headers });
       const next = bodies.shift();
       return { ok: next.ok ?? true, status: next.status ?? 200, text: async () => JSON.stringify(next.body ?? null) };
     };
@@ -185,6 +198,26 @@ describe('ensurePullRequest', () => {
       head: 'rai-badge--branches--main',
       title: ARGS.title,
     });
+  });
+
+  it('carries the bearer token on every call', async () => {
+    const fetchImpl = fakeFetch([{ body: [] }, { body: { number: 9 } }]);
+
+    await ensurePullRequest({ ...ARGS, fetchImpl });
+
+    for (const call of fetchImpl.calls) {
+      expect(call.headers.authorization).toBe('Bearer ghs_fake');
+    }
+  });
+
+  it('honours a GitHub Enterprise api root', async () => {
+    const fetchImpl = fakeFetch([{ body: [] }, { body: { number: 9 } }]);
+
+    await ensurePullRequest({ ...ARGS, apiUrl: 'https://ghe.example.com/api/v3', fetchImpl });
+
+    for (const call of fetchImpl.calls) {
+      expect(call.url.startsWith('https://ghe.example.com/api/v3/')).toBe(true);
+    }
   });
 
   it('surfaces the status and body of a failed call', async () => {

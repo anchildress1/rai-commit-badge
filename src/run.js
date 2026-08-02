@@ -59,7 +59,8 @@ export function readInputs() {
  *
  * @param {string} cwd repository directory
  * @param {string} readme the `readme` input
- * @returns {string} the absolute path to rewrite
+ * @returns {{target: string, path: string}} the absolute path to rewrite and its
+ *   repository-relative form, which is what git is given
  * @throws {Error} when the path resolves outside the workspace
  */
 function resolveTarget(cwd, readme) {
@@ -73,7 +74,10 @@ function resolveTarget(cwd, readme) {
   if (real !== root && !real.startsWith(root + sep)) {
     throw new Error(`readme "${readme}" resolves outside the workspace. Give a path relative to the repository root.`);
   }
-  return real;
+  // git is given the real path, not the input: staging the input would stage an
+  // unchanged symlink while the write landed on its target, and the commit then
+  // fails on an empty pathspec with the rewritten file stranded in the tree
+  return { target: real, path: relative(root, real) };
 }
 
 /**
@@ -97,7 +101,7 @@ function readRepository() {
  * @returns {Promise<string>} the commit state for the job summary
  * @throws {Error} on a detached HEAD, a missing repository or token, or a failed push
  */
-async function publish({ cwd, readme, target, content, result, base, token, fetchImpl }) {
+async function publish({ cwd, path, target, content, result, base, token, fetchImpl }) {
   if (base === null) {
     throw new Error('Cannot publish from a detached HEAD.');
   }
@@ -113,7 +117,7 @@ async function publish({ cwd, readme, target, content, result, base, token, fetc
 
   writeFileSync(target, content);
   const message = commitMessage(result.displayed, result.attributed);
-  const { branch } = commitToBadgeBranch({ cwd, readme, message, base });
+  const { branch } = commitToBadgeBranch({ cwd, path, message, base });
   const number = await ensurePullRequest({
     owner,
     repo,
@@ -149,7 +153,7 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd(),
   const result = score(readCommits(cwd), { since });
   const badge = badgeMarkdown(result, style);
 
-  const target = resolveTarget(cwd, readme);
+  const { target, path } = resolveTarget(cwd, readme);
 
   let original = null;
   try {
@@ -173,10 +177,11 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd(),
     commitState = 'unchanged';
     core.info('Badge is byte-identical — skipping the commit.');
   } else {
-    commitState = await publish({ cwd, readme, target, content, result, base, token, fetchImpl });
+    commitState = await publish({ cwd, path, target, content, result, base, token, fetchImpl });
   }
 
-  await core.summary.addRaw(buildSummary({ result, badge, readme, replaced, commitState })).write();
+  const summary = buildSummary({ result, badge, readme, replaced, missing: original === null, commitState });
+  await core.summary.addRaw(summary).write();
   const headline = result.attributed ? `${result.percent.toFixed(1)}%` : 'no attribution';
   core.info(`AI attribution: ${headline}`);
   return result;

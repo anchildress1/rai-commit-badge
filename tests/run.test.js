@@ -309,6 +309,23 @@ describe('run', () => {
     expect(readFileSync(outside, 'utf8')).toBe(README);
   });
 
+  it('badges through a symlink that stays inside the workspace', async () => {
+    // the write follows the link; staging the input path instead would stage an
+    // unchanged symlink and fail the commit with the rewritten file left in the tree
+    const { local } = repoWithRemote();
+    writeFileSync(join(local, 'docs.md'), README);
+    symlinkSync('docs.md', join(local, 'LINK.md'));
+    gitRun(['add', '-A'], local);
+    gitRun(['commit', '-q', '--no-verify', '-m', 'chore: link'], local);
+    gitRun(['push', '-q', 'origin', 'main'], local);
+    process.env.INPUT_README = 'LINK.md';
+
+    await run({ cwd: local, fetchImpl: fakeFetch() });
+
+    expect(badgedFile(local, 'docs.md')).toContain('img.shields.io');
+    expect(readFileSync(join(local, 'docs.md'), 'utf8')).toBe(README);
+  });
+
   it('names the empty window rather than a missing footer when since overshoots', async () => {
     const { local } = repoWithRemote();
     process.env.INPUT_SINCE = '2030-01-01';
