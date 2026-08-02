@@ -21,7 +21,9 @@ if (!block) {
 const upstream = [...block[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
 const ours = AI_ATTRIBUTION_KEYS;
 
-if (upstream.join(',') !== ours.join(',')) {
+// compared as sets: the pattern is anchored and no key prefixes another, so a
+// reorder upstream is meaningless here and would otherwise red-line every open PR
+if (upstream.toSorted().join(',') !== ours.toSorted().join(',')) {
   console.error('Footer key sets have drifted.');
   console.error(`  rai-lint:         ${upstream.join(', ')}`);
   console.error(`  rai-commit-badge: ${ours.join(', ')}`);

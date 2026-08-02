@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { AI_ATTRIBUTION_KEYS, parseFooterLine, WEIGHTS } from '../src/keys.js';
 
+describe('WEIGHTS', () => {
+  // a key without a weight goes undefined -> NaN mean -> `?? 0` misses it -> TypeError
+  // in bandColor. check-key-parity guards this too, but only behind a network fetch.
+  it.each(AI_ATTRIBUTION_KEYS)('carries a numeric weight for %s', (key) => {
+    expect(typeof WEIGHTS[key.toLowerCase()]).toBe('number');
+  });
+
+  it('weighs no key it cannot parse', () => {
+    expect(Object.keys(WEIGHTS).toSorted()).toEqual(AI_ATTRIBUTION_KEYS.map((k) => k.toLowerCase()).toSorted());
+  });
+});
+
 describe('parseFooterLine', () => {
   it('matches every key case-insensitively', () => {
     for (const key of AI_ATTRIBUTION_KEYS) {
