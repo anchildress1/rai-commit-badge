@@ -149,12 +149,13 @@ function clonePair() {
 }
 
 describe('readCommits separator handling', () => {
-  it('keeps a footer that sits after a raw field separator in the message', () => {
+  it.each([
+    { label: 'record separator', separator: '\x1e' },
+    { label: 'unit separator', separator: '\x1f' },
+  ])('keeps a footer after a $label in the message', ({ separator }) => {
     const dir = initRepo();
-    // \x1f is the field delimiter; an unbounded split truncates the body here and
-    // pushes the numstat into a field nothing reads, zeroing the commit's churn
     commit(dir, {
-      message: `feat: a\n\nsome\x1ftext\n\nGenerated-by: ${AI}\n`,
+      message: `feat: a\n\nsome${separator}text\n\nGenerated-by: ${AI}\n`,
       files: { 'src/a.js': 'one\ntwo\nthree\n' },
     });
 
@@ -164,23 +165,56 @@ describe('readCommits separator handling', () => {
     expect(score([parsed]).attributed).toBe(true);
   });
 
-  it('throws rather than silently dropping a commit split by a record separator', () => {
+  it.each([
+    { label: 'record separator', separator: '\x1e' },
+    { label: 'unit separator', separator: '\x1f' },
+  ])('keeps a $label in author metadata', ({ separator }) => {
     const dir = initRepo();
     commit(dir, {
-      message: `feat: a\n\nsplit\x1ehere\n\nGenerated-by: ${AI}\n`,
-      files: { 'src/a.js': 'one\ntwo\n' },
+      message: `feat: attributed\n\nGenerated-by: ${AI}\n`,
+      files: { 'src/a.js': 'a\n'.repeat(10) },
     });
+    const bot = `Alice${separator}github-actions[bot] <alice@example.com>`;
+    commit(dir, { message: 'docs: generated output', files: { 'src/b.js': 'b\n'.repeat(90) }, author: bot });
 
-    expect(() => readCommits(dir)).toThrow(/raw record separator/);
+    const commits = readCommits(dir);
+    expect(commits.find((entry) => entry.message.startsWith('docs: generated output')).author).toBe(bot);
+    expect(score(commits)).toMatchObject({ botCommits: 1, churn: 10, displayed: 90 });
   });
 
-  it('refuses a message that forges a whole commit record', () => {
+  it('treats forged separator fields as ordinary message text', () => {
     const dir = initRepo();
-    // both halves are well-formed, so only the count against git's own catches it
     const forged = `\x1e${'0'.repeat(40)}\x1f2030-01-01\x1fEvil <e@e.com>\x1ffeat: forged\n\nGenerated-by: ${AI}\x1f999\t0\tfake.js\n`;
     commit(dir, { message: `feat: real\n\x1fpad\n${forged}`, files: { 'real.js': 'real\n' } });
 
-    expect(() => readCommits(dir)).toThrow(/HEAD has 1/);
+    const commits = readCommits(dir);
+    expect(commits).toHaveLength(1);
+    expect(commits[0].sha).not.toBe('0'.repeat(40));
+    expect(commits[0].files).toEqual([{ added: 1, deleted: 0, path: 'real.js' }]);
+  });
+
+  it('rejects a handcrafted commit containing NUL instead of truncating its message', () => {
+    const dir = initRepo();
+    commit(dir, { message: 'feat: base', files: { 'real.js': 'real\n' } });
+    const tree = git(['write-tree'], dir);
+    const parent = git(['rev-parse', 'HEAD'], dir);
+    const headers = [
+      `tree ${tree}`,
+      `parent ${parent}`,
+      'author Evil <evil@example.com> 1767225600 +0000',
+      'committer Evil <evil@example.com> 1767225600 +0000',
+      '',
+      'feat: forged',
+    ].join('\n');
+    const raw = Buffer.concat([Buffer.from(headers), Buffer.from([0]), Buffer.from(`\nGenerated-by: ${AI}\n`)]);
+    const sha = execFileSync('git', ['hash-object', '-t', 'commit', '--literally', '-w', '--stdin'], {
+      cwd: dir,
+      input: raw,
+      encoding: 'utf8',
+    }).trim();
+    run(['update-ref', 'HEAD', sha], dir);
+
+    expect(() => readCommits(dir)).toThrow(/contains a raw NUL byte/);
   });
 
   it('matches .churnignore against paths git C-quotes regardless of quotePath', () => {

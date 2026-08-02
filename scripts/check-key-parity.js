@@ -1,6 +1,7 @@
 // Asserts this action's footer keys still match rai-lint's. A key added there
 // and missed here silently scores those commits as unattributed.
 import { AI_ATTRIBUTION_KEYS, WEIGHTS } from '../src/keys.js';
+import { sameUniqueKeys } from './key-parity.js';
 
 const SOURCE =
   'https://raw.githubusercontent.com/anchildress1/rai-lint/main/packages/python-gitlint/gitlint_rai/rules.py';
@@ -23,8 +24,7 @@ const ours = AI_ATTRIBUTION_KEYS;
 
 // compared as sets: the pattern is anchored and no key prefixes another, so a
 // reorder upstream is meaningless here and would otherwise red-line every open PR
-const ourKeys = new Set(ours);
-if (upstream.length !== ourKeys.size || !upstream.every((key) => ourKeys.has(key))) {
+if (!sameUniqueKeys(upstream, ours)) {
   console.error('Footer key sets have drifted.');
   console.error(`  rai-lint:         ${upstream.join(', ')}`);
   console.error(`  rai-commit-badge: ${ours.join(', ')}`);

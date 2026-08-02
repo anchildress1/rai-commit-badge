@@ -1,7 +1,7 @@
-import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
 import * as core from '@actions/core';
-import { isShallow, readCommits, syncWithOrigin } from './git.js';
+import { git, isShallow, readCommits, syncWithOrigin } from './git.js';
 import { commitMessage, commitToBadgeBranch, ensurePullRequest } from './publish.js';
 import { badgeMarkdown, replaceMarkers, STYLES } from './render.js';
 import { score } from './score.js';
@@ -101,7 +101,7 @@ function readRepository() {
  * @returns {Promise<string>} the commit state for the job summary
  * @throws {Error} on a detached HEAD, a missing repository or token, or a failed push
  */
-async function publish({ cwd, path, target, content, result, base, token, fetchImpl }) {
+async function publish({ cwd, path, target, original, content, result, base, token, fetchImpl }) {
   if (base === null) {
     throw new Error('Cannot publish from a detached HEAD.');
   }
@@ -115,9 +115,33 @@ async function publish({ cwd, path, target, content, result, base, token, fetchI
     );
   }
 
+  const wasTracked = Boolean(git(['ls-files', '--stage', '--', path], cwd));
+  const originalMode = statSync(target).mode & 0o777;
   writeFileSync(target, content);
   const message = commitMessage(result.displayed, result.attributed);
-  const { branch } = commitToBadgeBranch({ cwd, path, message, base });
+  let branch;
+  let commitError = null;
+  try {
+    ({ branch } = commitToBadgeBranch({ cwd, path, message, base, wasTracked }));
+  } catch (error) {
+    commitError = error;
+  }
+
+  let restoreError = null;
+  if (commitError || !wasTracked) {
+    try {
+      writeFileSync(target, original);
+      chmodSync(target, originalMode);
+    } catch (error) {
+      restoreError = error;
+    }
+  }
+  if (commitError) {
+    if (restoreError) core.warning(`Could not restore ${path} after publication failed: ${restoreError.message}`);
+    throw commitError;
+  }
+  if (restoreError) throw restoreError;
+
   const number = await ensurePullRequest({
     owner,
     repo,
@@ -177,7 +201,7 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd(),
     commitState = 'unchanged';
     core.info('Badge is byte-identical — skipping the commit.');
   } else {
-    commitState = await publish({ cwd, path, target, content, result, base, token, fetchImpl });
+    commitState = await publish({ cwd, path, target, original, content, result, base, token, fetchImpl });
   }
 
   const summary = buildSummary({ result, badge, readme, replaced, missing: original === null, commitState });

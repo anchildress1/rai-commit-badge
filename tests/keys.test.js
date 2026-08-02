@@ -1,5 +1,29 @@
 import { describe, expect, it } from 'vitest';
+import { sameUniqueKeys } from '../scripts/key-parity.js';
 import { AI_ATTRIBUTION_KEYS, parseFooterLine, WEIGHTS } from '../src/keys.js';
+
+describe('sameUniqueKeys', () => {
+  it('accepts the same unique keys in a different order', () => {
+    expect(sameUniqueKeys(['A', 'B', 'C'], ['C', 'A', 'B'])).toBe(true);
+  });
+
+  it.each([
+    [
+      ['A', 'A', 'B'],
+      ['A', 'B', 'C'],
+    ],
+    [
+      ['A', 'B', 'C'],
+      ['A', 'A', 'B'],
+    ],
+    [
+      ['A', 'B'],
+      ['A', 'B', 'C'],
+    ],
+  ])('rejects duplicate or missing keys in %j and %j', (left, right) => {
+    expect(sameUniqueKeys(left, right)).toBe(false);
+  });
+});
 
 describe('WEIGHTS', () => {
   // a key without a weight goes undefined -> NaN mean -> `?? 0` misses it -> TypeError

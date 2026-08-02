@@ -47,10 +47,14 @@ export function badgeBranchName(base) {
  * @param {string} params.message the commit message
  * @param {string} params.base the branch the badge is measured from
  * @param {(args: string[], cwd: string) => string} [params.run] git runner, injected for tests
+ * @param {boolean} [params.wasTracked] whether the badge path existed in HEAD before it was rewritten
  * @returns {{branch: string}} the branch the badge landed on
  */
-export function commitToBadgeBranch({ cwd, path, message, base, run = git }) {
+export function commitToBadgeBranch({ cwd, path, message, base, run = git, wasTracked }) {
   const branch = badgeBranchName(base);
+  const tracked = wasTracked ?? Boolean(run(['ls-files', '--stage', '--', path], cwd));
+  let operationError = null;
+  let committed = false;
 
   run(['checkout', '-B', branch], cwd);
   try {
@@ -60,21 +64,42 @@ export function commitToBadgeBranch({ cwd, path, message, base, run = git }) {
     // action excludes bot-authored commits from scoring — poisoning its own input
     const identity = ['-c', `user.name=${COMMITTER_NAME}`, '-c', `user.email=${COMMITTER_EMAIL}`];
     run([...identity, 'commit', '--only', '-m', message, '--', path], cwd);
+    committed = true;
     // the branch is machine-owned and rebuilt from base every run, so the push
     // has to clobber whatever the previous run left behind
     run(['push', '--force', 'origin', `HEAD:refs/heads/${branch}`], cwd);
-  } finally {
-    // every later step in the job shares this checkout, and leaving it on the
-    // badge branch silently retargets them. Restored on the failure path too,
-    // where the caller is about to surface an error someone will debug from here.
-    try {
-      run(['checkout', base], cwd);
-    } catch (error) {
-      // a throw here would replace the in-flight one, and the push or commit that
-      // actually failed is the half worth debugging
-      core.warning(`Could not restore the ${base} checkout: ${error.message}`);
+  } catch (error) {
+    operationError = error;
+    if (!committed) {
+      try {
+        const restore = tracked
+          ? ['restore', '--source=HEAD', '--staged', '--worktree', '--', path]
+          : ['restore', '--staged', '--', path];
+        run(restore, cwd);
+      } catch (cleanupError) {
+        core.warning(`Could not restore ${path} after the failed badge commit: ${cleanupError.message}`);
+      }
     }
   }
+
+  // every later step in the job shares this checkout, and leaving it on the
+  // badge branch silently retargets them. Restored on the failure path too,
+  // where the caller is about to surface an error someone will debug from here.
+  let checkoutError = null;
+  try {
+    run(['checkout', base], cwd);
+  } catch (error) {
+    checkoutError = error;
+  }
+
+  if (operationError) {
+    if (checkoutError) {
+      // the push or commit that actually failed is the half worth debugging
+      core.warning(`Could not restore the ${base} checkout: ${checkoutError.message}`);
+    }
+    throw operationError;
+  }
+  if (checkoutError) throw checkoutError;
 
   return { branch };
 }

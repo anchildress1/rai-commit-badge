@@ -1,12 +1,41 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 
-const RECORD = '\x1e';
-const FIELD = '\x1f';
+const FIELD = '\0';
+const FIELDS_PER_COMMIT = 5;
 
-const LOG_FORMAT = `${RECORD}%H${FIELD}%ad${FIELD}%an <%ae>${FIELD}%B${FIELD}`;
+// Git's ordinary writers reject NUL, so it is safe framing for ordinary history.
+// readCommits separately rejects handcrafted objects that smuggle one in.
+const LOG_FORMAT = '%x00%H%x00%ad%x00%an <%ae>%x00%B%x00';
 
-/** Render a fragment of git output for an error message, bounded and escaped. */
-const quote = (record) => JSON.stringify(record.slice(0, 80));
+/** Reject objects Git's pretty formatter would silently truncate at a raw NUL. */
+function rejectNulCommitObjects(cwd, shas) {
+  if (shas.length === 0) return;
+
+  const batch = execFileSync('git', ['cat-file', '--batch'], {
+    cwd,
+    input: `${shas.join('\n')}\n`,
+    maxBuffer: 512 * 1024 * 1024,
+  });
+  let offset = 0;
+
+  for (const expectedSha of shas) {
+    const headerEnd = batch.indexOf(0x0a, offset);
+    const header = headerEnd === -1 ? '' : batch.subarray(offset, headerEnd).toString('utf8');
+    const match = /^([0-9a-f]+) commit (\d+)$/.exec(header);
+    if (!match || match[1] !== expectedSha) throw new Error('Unparsable git cat-file output.');
+
+    const bodyStart = headerEnd + 1;
+    const bodyEnd = bodyStart + Number(match[2]);
+    const nul = batch.indexOf(0, bodyStart);
+    if (nul !== -1 && nul < bodyEnd) {
+      throw new Error(`Commit ${expectedSha} contains a raw NUL byte — refusing to score truncated history.`);
+    }
+    if (bodyEnd >= batch.length || batch[bodyEnd] !== 0x0a) throw new Error('Unparsable git cat-file output.');
+    offset = bodyEnd + 1;
+  }
+
+  if (offset !== batch.length) throw new Error('Unparsable git cat-file output.');
+}
 
 /**
  * Run git and return stdout.
@@ -136,26 +165,14 @@ export function readCommits(cwd) {
     { cwd, encoding: 'utf8', maxBuffer: 512 * 1024 * 1024 }
   );
 
+  const fields = out.split(FIELD);
+  if (fields[0] !== '' || (fields.length - 1) % FIELDS_PER_COMMIT !== 0) {
+    throw new Error('Unparsable NUL-framed git log output.');
+  }
+
   const commits = [];
-  for (const record of out.split(RECORD)) {
-    if (!record.trim()) continue;
-    // A message carrying a raw field separator splits into extra fields. Rejoining the
-    // middle ones below is what keeps the body whole; a bounded split would truncate it
-    // instead, losing any footer past the separator and pushing the numstat into a field
-    // nothing reads, zeroing the commit's churn.
-    const parts = record.split(FIELD);
-    // Too few fields is the other half of a record separator injection, and skipping
-    // it defeats the count check below: the real commit's leading fragment carries no
-    // separator, so it drops out silently while a forged fragment parses as the only
-    // commit — leaving the total matching `rev-list` and the forgery undetected.
-    if (parts.length < 5) {
-      throw new Error(`Unparsable git log record — a commit message contains a raw record separator: ${quote(record)}`);
-    }
-    const sha = parts[0];
-    const date = parts[1];
-    const author = parts[2];
-    const message = parts.slice(3, -1).join(FIELD);
-    const tail = parts.at(-1);
+  for (let index = 1; index < fields.length; index += FIELDS_PER_COMMIT) {
+    const [sha, date, author, message, tail] = fields.slice(index, index + FIELDS_PER_COMMIT);
 
     const files = [];
     for (const line of tail.split('\n')) {
@@ -171,18 +188,10 @@ export function readCommits(cwd) {
     commits.push({ sha, date, author, message, files });
   }
 
-  // git permits the record separator inside a message, and there it splits one
-  // commit into two records: a forged one whose sha, date, author, footer and
-  // numstat the message's author chose outright, plus a remainder whose real churn
-  // is swallowed. Padding a field separator into the message makes both halves
-  // well-formed enough to clear the check above, so only the count catches it.
-  // Reachable by any contributor whose PR merges unsquashed.
-  const expected = Number(git(['rev-list', '--count', '--no-merges', 'HEAD'], cwd));
-  if (commits.length !== expected) {
-    throw new Error(
-      `Read ${commits.length} commits but HEAD has ${expected} — a commit message contains a raw record separator.`
-    );
-  }
+  rejectNulCommitObjects(
+    cwd,
+    commits.map(({ sha }) => sha)
+  );
 
   return commits;
 }

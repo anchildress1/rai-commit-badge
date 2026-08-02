@@ -179,7 +179,7 @@ The action would rather fail than publish a number it cannot stand behind:
 
 - Sync with `origin` before scoring, and refuse on a dirty tree or a checkout holding commits `origin` lacks
 - Score a detached `HEAD` as-is, but refuse to publish from one
-- Refuse when the parsed commit count disagrees with `git rev-list` — a raw record separator in a message can forge a commit record outright
+- Refuse handcrafted commit objects containing NUL before Git can truncate their metadata
 - Refuse an empty `token` before anything is pushed, not at the pull request call after
 
 ### Marketplace

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as core from '@actions/core';
@@ -70,10 +70,7 @@ const summary = () => readFileSync(summaryPath, 'utf8');
  * the badge only ever lives on the branch and in the pull request it opens.
  */
 function badgedFile(dir, path = 'README.md') {
-  gitRun(['checkout', '-q', BADGE_BRANCH], dir);
-  const content = readFileSync(join(dir, path), 'utf8');
-  gitRun(['checkout', '-q', 'main'], dir);
-  return content;
+  return git(['show', `${BADGE_BRANCH}:${path}`], dir);
 }
 
 /** Fixture repo wired to a bare remote, holding a README with markers. */
@@ -127,6 +124,19 @@ describe('readInputs', () => {
 });
 
 describe('run', () => {
+  it('restores an untracked badge target when the commit fails', async () => {
+    const { local } = repoWithRemote();
+    const target = join(local, 'notes.md');
+    writeFileSync(target, README);
+    writeFileSync(join(local, '.git', 'hooks', 'pre-commit'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    process.env.INPUT_README = 'notes.md';
+
+    await expect(run({ cwd: local, fetchImpl: fakeFetch() })).rejects.toThrow();
+
+    expect(readFileSync(target, 'utf8')).toBe(README);
+    expect(git(['status', '--short'], local)).toBe('?? notes.md');
+  });
+
   it('writes the badge onto a branch and opens a pull request', async () => {
     const { remote, local } = repoWithRemote();
     const base = git(['rev-parse', 'main'], remote);
@@ -261,6 +271,7 @@ describe('run', () => {
   it('honours since, readme, and style', async () => {
     const { local } = repoWithRemote();
     writeFileSync(join(local, 'BADGE.md'), README);
+    chmodSync(join(local, 'BADGE.md'), 0o700);
     process.env.INPUT_README = 'BADGE.md';
     process.env.INPUT_STYLE = 'for-the-badge';
     process.env.INPUT_SINCE = '2026-01-02';
@@ -269,6 +280,8 @@ describe('run', () => {
 
     const content = badgedFile(local, 'BADGE.md');
     expect(content).toContain('0%25%20since%202026--01-0875AE?style=for-the-badge');
+    expect(readFileSync(join(local, 'BADGE.md'), 'utf8')).toBe(README);
+    expect(statSync(join(local, 'BADGE.md')).mode & 0o777).toBe(0o700);
     expect(summary()).toContain('| Window start | 2026-01-02');
   });
 
