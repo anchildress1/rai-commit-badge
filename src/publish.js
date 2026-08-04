@@ -1,3 +1,4 @@
+import * as core from '@actions/core';
 import { git } from './git.js';
 
 export const COMMITTER_NAME = 'github-actions[bot]';
@@ -17,8 +18,8 @@ const PR_BODY = [
  * and a bot cannot meaningfully sign off on itself.
  *
  * @param {number} displayed the displayed integer percentage
- * @param {boolean} attributed whether any footer was found
- * @returns {string} the commit subject
+ * @param {boolean} attributed whether the window held countable churn
+ * @returns {string} the commit subject, newline-terminated
  */
 export function commitMessage(displayed, attributed) {
   const subject = attributed
@@ -42,25 +43,65 @@ export function badgeBranchName(base) {
  *
  * @param {object} params
  * @param {string} params.cwd repository directory
- * @param {string} params.readme path to the rewritten file
+ * @param {string} params.path repository-relative path to the rewritten file
  * @param {string} params.message the commit message
  * @param {string} params.base the branch the badge is measured from
+ * @param {boolean} params.wasTracked whether git knew the badge path before it was rewritten,
+ *   read by the caller ahead of its own write
  * @param {(args: string[], cwd: string) => string} [params.run] git runner, injected for tests
- * @returns {{base: string, branch: string}} the base branch and the branch the badge landed on
+ * @returns {{branch: string}} the branch the badge landed on
  */
-export function commitToBadgeBranch({ cwd, readme, message, base, run = git }) {
+export function commitToBadgeBranch({ cwd, path, message, base, wasTracked, run = git }) {
   const branch = badgeBranchName(base);
+  let operationError = null;
+  let committed = false;
 
-  run(['config', 'user.name', COMMITTER_NAME], cwd);
-  run(['config', 'user.email', COMMITTER_EMAIL], cwd);
   run(['checkout', '-B', branch], cwd);
-  run(['add', '--', readme], cwd);
-  run(['commit', '--only', '-m', message, '--', readme], cwd);
-  // the branch is machine-owned and rebuilt from base every run, so the push
-  // has to clobber whatever the previous run left behind
-  run(['push', '--force', 'origin', `HEAD:refs/heads/${branch}`], cwd);
+  try {
+    run(['add', '--', path], cwd);
+    // identity passed per-command rather than written to the repo config: a later
+    // step committing without setting its own would inherit the bot's, and this
+    // action excludes bot-authored commits from scoring — poisoning its own input
+    const identity = ['-c', `user.name=${COMMITTER_NAME}`, '-c', `user.email=${COMMITTER_EMAIL}`];
+    run([...identity, 'commit', '--only', '-m', message, '--', path], cwd);
+    committed = true;
+    // the branch is machine-owned and rebuilt from base every run, so the push
+    // has to clobber whatever the previous run left behind
+    run(['push', '--force', 'origin', `HEAD:refs/heads/${branch}`], cwd);
+  } catch (error) {
+    operationError = error;
+    if (!committed) {
+      try {
+        const restore = wasTracked
+          ? ['restore', '--source=HEAD', '--staged', '--worktree', '--', path]
+          : ['restore', '--staged', '--', path];
+        run(restore, cwd);
+      } catch (cleanupError) {
+        core.warning(`Could not restore ${path} after the failed badge commit: ${cleanupError.message}`);
+      }
+    }
+  }
 
-  return { base, branch };
+  // every later step in the job shares this checkout, and leaving it on the
+  // badge branch silently retargets them. Restored on the failure path too,
+  // where the caller is about to surface an error someone will debug from here.
+  let checkoutError = null;
+  try {
+    run(['checkout', base], cwd);
+  } catch (error) {
+    checkoutError = error;
+  }
+
+  if (operationError) {
+    if (checkoutError) {
+      // the push or commit that actually failed is the half worth debugging
+      core.warning(`Could not restore the ${base} checkout: ${checkoutError.message}`);
+    }
+    throw operationError;
+  }
+  if (checkoutError) throw checkoutError;
+
+  return { branch };
 }
 
 /**
@@ -138,5 +179,10 @@ export async function ensurePullRequest({
     headers: json,
     body: JSON.stringify({ title, head: branch, base, body: PR_BODY }),
   });
+  // a 2xx with no body leaves nothing to report; the branch is already pushed, so
+  // say which half landed rather than dying on a property of null
+  if (!created?.number) {
+    throw new Error(`GitHub accepted the pull request for ${branch} but returned no number — the branch is pushed.`);
+  }
   return created.number;
 }

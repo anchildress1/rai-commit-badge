@@ -3,11 +3,11 @@ export const END_MARKER = '<!--END_SECTION:rai-badge-->';
 
 export const MARKER_SNIPPET = `${START_MARKER}\n${END_MARKER}`;
 
-export const LABEL = 'AI attribution';
+const LABEL = 'AI attribution';
 
 export const STYLES = ['flat', 'flat-square', 'plastic', 'for-the-badge', 'social'];
 
-export const NO_ATTRIBUTION = 'no attribution';
+const NO_ATTRIBUTION = 'no attribution';
 
 // Bands are keyed off the displayed integer, so the colour never disagrees with
 // the number printed on the badge.
@@ -66,15 +66,23 @@ export function badgeMarkdown(result, style) {
  * @returns {{content: string, replaced: number}} rewritten content and 1 when a pair was found
  */
 export function replaceMarkers(content, block) {
-  // rejoin on whatever the file already uses, or a CRLF repo gets rewritten whole
-  const newline = content.includes('\r\n') ? '\r\n' : '\n';
-  const lines = content.split(newline);
+  // Each line keeps its own ending rather than the file being rejoined on one guessed
+  // newline. Picking a single one off `includes('\r\n')` rewrites a CRLF repo whole in
+  // one direction, and in the other a lone CRLF row — a table pasted from a browser is
+  // enough — makes every LF line split wrong, so no chunk trims to a bare marker and a
+  // README that plainly has the pair reports none.
+  const lines = content.split(/\r?\n/);
+  const endings = [...content.matchAll(/\r?\n/g)].map((match) => match[0]);
+
   const start = lines.findIndex((line) => line.trim() === START_MARKER);
   if (start === -1) return { content, replaced: 0 };
 
   const end = lines.findIndex((line, index) => index > start && line.trim() === END_MARKER);
   if (end === -1) return { content, replaced: 0 };
 
-  lines.splice(start + 1, end - start - 1, block);
-  return { content: lines.join(newline), replaced: 1 };
+  const removed = end - start - 1;
+  lines.splice(start + 1, removed, block);
+  endings.splice(start + 1, removed, endings[start] ?? '\n');
+
+  return { content: lines.map((line, index) => line + (endings[index] ?? '')).join(''), replaced: 1 };
 }

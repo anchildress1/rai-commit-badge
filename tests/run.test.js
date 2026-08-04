@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as core from '@actions/core';
@@ -24,6 +24,8 @@ beforeEach(() => {
   writeFileSync(summaryPath, '');
   process.env.GITHUB_STEP_SUMMARY = summaryPath;
   process.env.GITHUB_REPOSITORY = 'anchildress1/rai-commit-badge';
+  // action.yml defaults this to github.token, so a real run always carries one
+  process.env.INPUT_TOKEN = 'ghs_fixture';
   core.summary.emptyBuffer();
 });
 
@@ -32,6 +34,7 @@ afterEach(() => {
     'INPUT_SINCE',
     'INPUT_README',
     'INPUT_STYLE',
+    'INPUT_TOKEN',
     'GITHUB_STEP_SUMMARY',
     'GITHUB_WORKSPACE',
     'GITHUB_REPOSITORY',
@@ -60,6 +63,16 @@ afterAll(cleanup);
 
 const summary = () => readFileSync(summaryPath, 'utf8');
 
+/**
+ * Read the badged file off the badge branch.
+ *
+ * The run hands the checkout back on base, so the working tree holds base's copy —
+ * the badge only ever lives on the branch and in the pull request it opens.
+ */
+function badgedFile(dir, path = 'README.md') {
+  return git(['show', `${BADGE_BRANCH}:${path}`], dir);
+}
+
 /** Fixture repo wired to a bare remote, holding a README with markers. */
 function repoWithRemote(readme = README) {
   const remote = initBareRepo();
@@ -81,7 +94,7 @@ function repoWithRemote(readme = README) {
 
 describe('readInputs', () => {
   it('defaults every input', () => {
-    expect(readInputs()).toEqual({ since: undefined, readme: 'README.md', style: 'flat', token: '' });
+    expect(readInputs()).toEqual({ since: undefined, readme: 'README.md', style: 'flat', token: 'ghs_fixture' });
   });
 
   it('rejects an unknown style', () => {
@@ -111,6 +124,19 @@ describe('readInputs', () => {
 });
 
 describe('run', () => {
+  it('restores an untracked badge target when the commit fails', async () => {
+    const { local } = repoWithRemote();
+    const target = join(local, 'notes.md');
+    writeFileSync(target, README);
+    writeFileSync(join(local, '.git', 'hooks', 'pre-commit'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    process.env.INPUT_README = 'notes.md';
+
+    await expect(run({ cwd: local, fetchImpl: fakeFetch() })).rejects.toThrow();
+
+    expect(readFileSync(target, 'utf8')).toBe(README);
+    expect(git(['status', '--short'], local)).toBe('?? notes.md');
+  });
+
   it('writes the badge onto a branch and opens a pull request', async () => {
     const { remote, local } = repoWithRemote();
     const base = git(['rev-parse', 'main'], remote);
@@ -119,8 +145,12 @@ describe('run', () => {
     const result = await run({ cwd: local, fetchImpl });
 
     expect(result.displayed).toBe(81);
-    const content = readFileSync(join(local, 'README.md'), 'utf8');
-    expect(content).toContain('https://img.shields.io/badge/AI%20attribution-81%25%20since%202026--01-C03070');
+    expect(badgedFile(local)).toContain(
+      'https://img.shields.io/badge/AI%20attribution-81%25%20since%202026--01-C03070'
+    );
+    // the checkout is handed back on base, so later steps in the job are unaffected
+    expect(git(['symbolic-ref', '--short', 'HEAD'], local)).toBe('main');
+    expect(readFileSync(join(local, 'README.md'), 'utf8')).toBe(README);
     expect(git(['log', '-1', '--format=%s', BADGE_BRANCH], remote)).toBe('docs: update AI attribution badge to 81%');
     // the base never takes a direct push, so its checks stay in charge
     expect(git(['rev-parse', 'main'], remote)).toBe(base);
@@ -157,7 +187,7 @@ describe('run', () => {
   it('scores a detached checkout as-is when there is nothing to publish', async () => {
     const { local: scratch } = repoWithRemote();
     await run({ cwd: scratch, fetchImpl: fakeFetch() });
-    const badged = readFileSync(join(scratch, 'README.md'), 'utf8');
+    const badged = badgedFile(scratch);
 
     const { local } = repoWithRemote(badged);
     const sha = git(['rev-parse', 'HEAD'], local);
@@ -195,7 +225,7 @@ describe('run', () => {
     // base with it already committed — as if the badge PR had already been merged
     const { local: scratch } = repoWithRemote();
     await run({ cwd: scratch, fetchImpl: fakeFetch() });
-    const badged = readFileSync(join(scratch, 'README.md'), 'utf8');
+    const badged = badgedFile(scratch);
 
     const { remote, local } = repoWithRemote(badged);
     core.summary.emptyBuffer();
@@ -234,23 +264,24 @@ describe('run', () => {
 
     await run({ cwd: local, fetchImpl: fakeFetch() });
 
-    expect(readFileSync(join(local, 'README.md'), 'utf8')).toContain(
-      'AI%20attribution-no%20attribution-9F9F9F?style=flat'
-    );
+    expect(badgedFile(local)).toContain('AI%20attribution-no%20attribution-9F9F9F?style=flat');
     expect(summary()).toContain('no attribution — no RAI footer found');
   });
 
   it('honours since, readme, and style', async () => {
     const { local } = repoWithRemote();
     writeFileSync(join(local, 'BADGE.md'), README);
+    chmodSync(join(local, 'BADGE.md'), 0o700);
     process.env.INPUT_README = 'BADGE.md';
     process.env.INPUT_STYLE = 'for-the-badge';
     process.env.INPUT_SINCE = '2026-01-02';
 
     await run({ cwd: local, fetchImpl: fakeFetch() });
 
-    const content = readFileSync(join(local, 'BADGE.md'), 'utf8');
+    const content = badgedFile(local, 'BADGE.md');
     expect(content).toContain('0%25%20since%202026--01-0875AE?style=for-the-badge');
+    expect(readFileSync(join(local, 'BADGE.md'), 'utf8')).toBe(README);
+    expect(statSync(join(local, 'BADGE.md')).mode & 0o777).toBe(0o700);
     expect(summary()).toContain('| Window start | 2026-01-02');
   });
 
@@ -262,12 +293,89 @@ describe('run', () => {
     await expect(run({ cwd: shallow })).rejects.toThrow(/Shallow clone/);
   });
 
-  it('warns when the target file is missing', async () => {
+  it('names a missing target as missing rather than blaming its markers', async () => {
     const { local } = repoWithRemote();
     process.env.INPUT_README = 'MISSING.md';
 
     await run({ cwd: local });
 
-    expect(summary()).toContain('### No markers in `MISSING.md`');
+    expect(summary()).toContain('### `MISSING.md` not found');
+    expect(summary()).not.toContain('No markers in');
+  });
+
+  it('names a present file with no markers as missing markers', async () => {
+    const { local } = repoWithRemote('# Fixture\n\nNo markers here.\n');
+
+    await run({ cwd: local });
+
+    expect(summary()).toContain('### No markers in `README.md`');
+    expect(summary()).not.toContain('not found');
+  });
+
+  it.each(['../escaped.md', '/etc/hosts'])('refuses a readme resolving outside the workspace: %s', async (readme) => {
+    const { local } = repoWithRemote();
+    process.env.INPUT_README = readme;
+
+    await expect(run({ cwd: local })).rejects.toThrow(/outside the workspace/);
+  });
+
+  it('refuses a readme that escapes through a symlink', async () => {
+    // resolve() is lexical, so this stays inside cwd on paper while the write follows
+    // the link out of the workspace
+    const { local } = repoWithRemote();
+    const outside = join(mkdtempSync(join(tmpdir(), 'rai-badge-outside-')), 'OUT.md');
+    writeFileSync(outside, README);
+    symlinkSync(outside, join(local, 'linked.md'));
+    process.env.INPUT_README = 'linked.md';
+
+    await expect(run({ cwd: local })).rejects.toThrow(/outside the workspace/);
+    expect(readFileSync(outside, 'utf8')).toBe(README);
+  });
+
+  it('badges through a symlink that stays inside the workspace', async () => {
+    // the write follows the link; staging the input path instead would stage an
+    // unchanged symlink and fail the commit with the rewritten file left in the tree
+    const { local } = repoWithRemote();
+    writeFileSync(join(local, 'docs.md'), README);
+    symlinkSync('docs.md', join(local, 'LINK.md'));
+    gitRun(['add', '-A'], local);
+    gitRun(['commit', '-q', '--no-verify', '-m', 'chore: link'], local);
+    gitRun(['push', '-q', 'origin', 'main'], local);
+    process.env.INPUT_README = 'LINK.md';
+
+    await run({ cwd: local, fetchImpl: fakeFetch() });
+
+    expect(badgedFile(local, 'docs.md')).toContain('img.shields.io');
+    expect(readFileSync(join(local, 'docs.md'), 'utf8')).toBe(README);
+  });
+
+  it('names the empty window rather than a missing footer when since overshoots', async () => {
+    const { local } = repoWithRemote();
+    process.env.INPUT_SINCE = '2030-01-01';
+
+    await run({ cwd: local, fetchImpl: fakeFetch() });
+
+    expect(summary()).toContain('no commits on or after 2030-01-01');
+    expect(summary()).not.toContain('no RAI footer found');
+  });
+
+  it('refuses an empty token before pushing anything', async () => {
+    const { local, remote } = repoWithRemote();
+    process.env.INPUT_TOKEN = '';
+
+    await expect(run({ cwd: local })).rejects.toThrow(/No token supplied/);
+    // the push lands before the pull request call, so this has to fail earlier
+    expect(() => git(['rev-parse', 'rai-badge--branches--main'], remote)).toThrow();
+    expect(readFileSync(join(local, 'README.md'), 'utf8')).not.toContain('img.shields.io');
+  });
+
+  it('fails rather than skipping the badge when the target cannot be read', async () => {
+    // a directory reads as EISDIR, not ENOENT — an unreadable target must not
+    // report success with the badge quietly left alone
+    const { local } = repoWithRemote();
+    mkdirSync(join(local, 'adirectory.md'), { recursive: true });
+    process.env.INPUT_README = 'adirectory.md';
+
+    await expect(run({ cwd: local })).rejects.toThrow(/EISDIR/);
   });
 });

@@ -105,7 +105,10 @@ jobs:
 > [!IMPORTANT]
 > The action syncs the checkout with `origin` before scoring, and refuses to run if the workspace has uncommitted changes or local commits `origin` doesn't have yet — commit or push those in an earlier step, not after this one.
 
-The badge arrives as a pull request on `rai-badge--branches--<base>`, rebuilt from the base each run, so it always holds one commit.
+The badge arrives as a pull request on `rai-badge--branches--<base>`, rebuilt from the base each run, so it always holds one commit. Your checkout is handed back on the base branch afterwards — the badge lives on the branch and in the PR, never in your working tree. The bot identity is passed to that one commit rather than written to your git config, so later steps in the same job keep their own author and branch.
+
+> [!NOTE]
+> The PR is opened with `github.token` by default, and workflow runs on a pull request that token creates start in an approval-required state — someone with write access clicks **Approve workflows to run**. If you want checks to start on their own, pass a PAT as `token:` instead. See [Which token](#which-token).
 
 ---
 
@@ -180,9 +183,11 @@ Each footer carries a weight derived from what it declares:
 | `Co-authored-by`      | Roughly 50/50        | 0.50   |
 | `Generated-by`        | Majority AI          | 0.90   |
 
-Commits are weighted by lines changed. Lockfiles, dependency trees, build output, and minified assets are excluded — so is any commit authored by a known bot (release-please, this action's own committer), since automation has no attribution to declare.
+Commits are weighted by lines changed. Lockfiles, dependency trees, build output, and minified assets are excluded — so is any footerless commit authored by a known bot (release-please, this action's own committer), since bare automation has no attribution to declare. A bot commit that carries a footer still counts — a squash merge lands under the merge bot's name and holds the attribution of everything it squashed.
 
-The ceiling is 0.90.
+`Generated-by` is the heaviest footer, so a fully AI-generated history tops out at 90%.
+
+If a window has no countable churn — a `since` past your last commit, or every changed file excluded — the badge reads **no attribution** rather than 0%. A measured zero and nothing-to-measure are different claims.
 
 ### Scoring starts when you adopted
 
@@ -194,7 +199,7 @@ AI attribution | 42% since 2026-03
 
 Inside the window, commits with no footer count as human, at weight 0.
 
-The colour tracks which footer dominates:
+The colour tracks the score printed on the badge:
 
 | Score   |           |           |
 | ------- | --------- | --------- |
@@ -203,7 +208,7 @@ The colour tracks which footer dominates:
 | 67–100% | `#C03070` | AI-led    |
 
 > [!NOTE]
-> `Co-authored-by` counts as AI only when the identity matches a known AI tool. Human co-authors score 0 — including the ones GitHub injects automatically when squashing.
+> `Co-authored-by` counts as AI only when the identity matches a known AI tool. Human co-authors are ignored — including the ones GitHub injects automatically when squashing. A paragraph whose only RAI footer is a human `Co-authored-by` is discarded rather than averaged in as a zero.
 
 ---
 

@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { git } from '../src/git.js';
@@ -53,19 +53,25 @@ describe('commitToBadgeBranch', () => {
     const before = git(['rev-parse', 'main'], remote);
     writeFileSync(join(local, 'README.md'), 'badged\n');
 
-    const { base, branch } = commitToBadgeBranch({
+    const { branch } = commitToBadgeBranch({
       cwd: local,
-      readme: 'README.md',
+      path: 'README.md',
       message: commitMessage(42, true),
       base: 'main',
+      wasTracked: true,
     });
 
-    expect(base).toBe('main');
     expect(branch).toBe('rai-badge--branches--main');
+    // later steps in the job share this checkout and must not inherit the badge branch
+    expect(git(['symbolic-ref', '--short', 'HEAD'], local)).toBe('main');
     expect(git(['log', '-1', '--format=%s', branch], remote)).toBe('docs: update AI attribution badge to 42%');
     expect(git(['rev-parse', 'main'], remote)).toBe(before);
-    expect(git(['log', '-1', '--format=%an'], local)).toBe(COMMITTER_NAME);
-    expect(git(['log', '-1', '--format=%ae'], local)).toBe(COMMITTER_EMAIL);
+    expect(git(['log', '-1', '--format=%an', branch], local)).toBe(COMMITTER_NAME);
+    expect(git(['log', '-1', '--format=%ae', branch], local)).toBe(COMMITTER_EMAIL);
+    // the bot identity must not outlive the commit: a later step inheriting it would
+    // author commits this action then excludes from its own scoring
+    expect(git(['config', '--local', 'user.name'], local)).toBe('Fixture');
+    expect(git(['config', '--local', 'user.email'], local)).toBe('fixture@example.com');
   });
 
   it('leaves unrelated staged changes out of the badge commit', () => {
@@ -76,9 +82,10 @@ describe('commitToBadgeBranch', () => {
 
     const { branch } = commitToBadgeBranch({
       cwd: local,
-      readme: 'README.md',
+      path: 'README.md',
       message: commitMessage(42, true),
       base: 'main',
+      wasTracked: true,
     });
 
     expect(git(['show', '--name-only', '--format=', branch], remote)).toBe('README.md');
@@ -90,20 +97,144 @@ describe('commitToBadgeBranch', () => {
     writeFileSync(join(local, 'README.md'), 'first\n');
     const { branch } = commitToBadgeBranch({
       cwd: local,
-      readme: 'README.md',
+      path: 'README.md',
       message: commitMessage(11, true),
       base: 'main',
+      wasTracked: true,
     });
     const stale = git(['rev-parse', branch], remote);
 
     run(['checkout', '-q', 'main'], local);
     writeFileSync(join(local, 'README.md'), 'second\n');
-    commitToBadgeBranch({ cwd: local, readme: 'README.md', message: commitMessage(42, true), base: 'main' });
+    commitToBadgeBranch({
+      cwd: local,
+      path: 'README.md',
+      message: commitMessage(42, true),
+      base: 'main',
+      wasTracked: true,
+    });
 
     expect(git(['rev-parse', branch], remote)).not.toBe(stale);
     expect(git(['log', '-1', '--format=%s', branch], remote)).toBe('docs: update AI attribution badge to 42%');
     // one commit on top of base, never a chain of stale badge commits
     expect(git(['rev-list', '--count', `main..${branch}`], remote)).toBe('1');
+  });
+
+  it('surfaces the push failure when restoring the checkout also fails', () => {
+    // the finally throwing over the in-flight error would bury the half worth debugging
+    const runner = (args) => {
+      if (args.includes('push')) throw new Error('remote rejected refs/heads/rai-badge');
+      if (args[0] === 'checkout' && args[1] === 'main') throw new Error('pathspec main did not match');
+      return '';
+    };
+
+    expect(() =>
+      commitToBadgeBranch({
+        cwd: '/nowhere',
+        path: 'README.md',
+        message: 'm\n',
+        base: 'main',
+        wasTracked: true,
+        run: runner,
+      })
+    ).toThrow(/remote rejected/);
+  });
+
+  it('surfaces a checkout failure after the badge was pushed', () => {
+    const runner = (args) => {
+      if (args[0] === 'checkout' && args[1] === 'main') throw new Error('pathspec main did not match');
+      return '';
+    };
+
+    expect(() =>
+      commitToBadgeBranch({
+        cwd: '/nowhere',
+        path: 'README.md',
+        message: 'm\n',
+        base: 'main',
+        wasTracked: true,
+        run: runner,
+      })
+    ).toThrow(/pathspec main did not match/);
+  });
+
+  it('preserves the commit failure when badge cleanup also fails', () => {
+    const runner = (args) => {
+      if (args.includes('commit')) throw new Error('commit hook rejected badge');
+      if (args[0] === 'restore') throw new Error('could not restore README');
+      return '';
+    };
+
+    expect(() =>
+      commitToBadgeBranch({
+        cwd: '/nowhere',
+        path: 'README.md',
+        message: 'm\n',
+        base: 'main',
+        wasTracked: true,
+        run: runner,
+      })
+    ).toThrow(/commit hook rejected badge/);
+  });
+
+  it('restores only the badge path when the commit fails', () => {
+    const { local } = clonePair();
+    writeFileSync(join(local, 'unrelated.txt'), 'staged\n');
+    run(['add', 'unrelated.txt'], local);
+    writeFileSync(join(local, 'README.md'), 'badged\n');
+    writeFileSync(join(local, '.git', 'hooks', 'pre-commit'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+
+    expect(() =>
+      commitToBadgeBranch({
+        cwd: local,
+        path: 'README.md',
+        message: commitMessage(42, true),
+        base: 'main',
+        wasTracked: true,
+      })
+    ).toThrow();
+
+    expect(git(['symbolic-ref', '--short', 'HEAD'], local)).toBe('main');
+    expect(git(['status', '--short'], local)).toBe('A  unrelated.txt');
+    expect(git(['diff', '--cached', '--name-only'], local)).toBe('unrelated.txt');
+    expect(git(['diff', '--name-only'], local)).toBe('');
+  });
+
+  it('preserves an untracked badge path when the commit fails', () => {
+    const local = initRepo();
+    commit(local, { message: 'feat: base', files: { 'tracked.txt': 'tracked\n' } });
+    writeFileSync(join(local, 'README.md'), 'original\n');
+    writeFileSync(join(local, '.git', 'hooks', 'pre-commit'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+
+    expect(() =>
+      commitToBadgeBranch({
+        cwd: local,
+        path: 'README.md',
+        message: commitMessage(42, true),
+        base: 'main',
+        wasTracked: false,
+      })
+    ).toThrow();
+
+    expect(readFileSync(join(local, 'README.md'), 'utf8')).toBe('original\n');
+    expect(git(['status', '--short'], local)).toBe('?? README.md');
+  });
+
+  it('restores the base checkout even when the push fails', () => {
+    const { local } = clonePair();
+    writeFileSync(join(local, 'README.md'), 'badged\n');
+    run(['remote', 'set-url', 'origin', '/nonexistent/remote.git'], local);
+
+    expect(() =>
+      commitToBadgeBranch({
+        cwd: local,
+        path: 'README.md',
+        message: commitMessage(42, true),
+        base: 'main',
+        wasTracked: true,
+      })
+    ).toThrow();
+    expect(git(['symbolic-ref', '--short', 'HEAD'], local)).toBe('main');
   });
 });
 
@@ -121,7 +252,7 @@ describe('ensurePullRequest', () => {
   function fakeFetch(bodies) {
     const calls = [];
     const impl = async (url, init = {}) => {
-      calls.push({ url, method: init.method ?? 'GET', body: init.body });
+      calls.push({ url, method: init.method ?? 'GET', body: init.body, headers: init.headers });
       const next = bodies.shift();
       return { ok: next.ok ?? true, status: next.status ?? 200, text: async () => JSON.stringify(next.body ?? null) };
     };
@@ -151,6 +282,14 @@ describe('ensurePullRequest', () => {
     expect(JSON.parse(fetchImpl.calls[1].body)).toEqual({ title: ARGS.title });
   });
 
+  it('names the pushed branch when the create call returns no body', async () => {
+    // the push has already landed by this point, so dying on a property of null
+    // would hide which half of the publish succeeded
+    const fetchImpl = fakeFetch([{ body: [] }, { status: 204, body: null }]);
+
+    await expect(ensurePullRequest({ ...ARGS, fetchImpl })).rejects.toThrow(/branch is pushed/);
+  });
+
   it('opens one when none is open', async () => {
     const fetchImpl = fakeFetch([{ body: [] }, { body: { number: 9 } }]);
 
@@ -161,6 +300,26 @@ describe('ensurePullRequest', () => {
       head: 'rai-badge--branches--main',
       title: ARGS.title,
     });
+  });
+
+  it('carries the bearer token on every call', async () => {
+    const fetchImpl = fakeFetch([{ body: [] }, { body: { number: 9 } }]);
+
+    await ensurePullRequest({ ...ARGS, fetchImpl });
+
+    for (const call of fetchImpl.calls) {
+      expect(call.headers.authorization).toBe('Bearer ghs_fake');
+    }
+  });
+
+  it('honours a GitHub Enterprise api root', async () => {
+    const fetchImpl = fakeFetch([{ body: [] }, { body: { number: 9 } }]);
+
+    await ensurePullRequest({ ...ARGS, apiUrl: 'https://ghe.example.com/api/v3', fetchImpl });
+
+    for (const call of fetchImpl.calls) {
+      expect(call.url.startsWith('https://ghe.example.com/api/v3/')).toBe(true);
+    }
   });
 
   it('surfaces the status and body of a failed call', async () => {

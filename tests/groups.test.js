@@ -19,6 +19,13 @@ describe('resolveWeight', () => {
     expect(resolveWeight(message)).toEqual({ weight: (0.9 + 0.25) / 2, groups: 2 });
   });
 
+  it('splits groups on a CRLF blank line as it does on LF', () => {
+    // a CRLF blank line is `\n\r\n`; missing it merges every group and turns the
+    // mean across groups into a plain max, inflating the score
+    const message = ['feat: thing', '', `Generated-by: ${AI}`, '', `Assisted-by: ${AI}`].join('\r\n');
+    expect(resolveWeight(message)).toEqual({ weight: (0.9 + 0.25) / 2, groups: 2 });
+  });
+
   it('discards a group whose only RAI line is a human Co-authored-by', () => {
     const message = [
       'feat: squashed',

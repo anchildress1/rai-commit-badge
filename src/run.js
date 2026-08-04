@@ -1,7 +1,7 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { chmodSync, existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, relative, resolve, sep } from 'node:path';
 import * as core from '@actions/core';
-import { isShallow, readCommits, syncWithOrigin } from './git.js';
+import { git, isShallow, readCommits, syncWithOrigin } from './git.js';
 import { commitMessage, commitToBadgeBranch, ensurePullRequest } from './publish.js';
 import { badgeMarkdown, replaceMarkers, STYLES } from './render.js';
 import { score } from './score.js';
@@ -26,7 +26,7 @@ function isRealDate(value) {
 /**
  * Read and validate the action's inputs.
  *
- * @returns {{since: string | undefined, readme: string, style: string}}
+ * @returns {{since: string | undefined, readme: string, style: string, token: string}}
  * @throws {Error} on an unknown style or a malformed `since`
  */
 export function readInputs() {
@@ -49,6 +49,38 @@ export function readInputs() {
 }
 
 /**
+ * Resolve the badge target and confirm it stays inside the workspace.
+ *
+ * `resolve` is lexical, so an absolute or `../` path escapes outright and a symlink
+ * inside the workspace escapes while still looking contained. Either way the write
+ * lands outside before `git add --` rejects the out-of-tree path, so the real path
+ * is what gets checked — walking up to the nearest existing ancestor, since the
+ * target itself legitimately may not exist yet.
+ *
+ * @param {string} cwd repository directory
+ * @param {string} readme the `readme` input
+ * @returns {{target: string, path: string}} the absolute path to rewrite and its
+ *   repository-relative form, which is what git is given
+ * @throws {Error} when the path resolves outside the workspace
+ */
+function resolveTarget(cwd, readme) {
+  const root = realpathSync(cwd);
+  const target = resolve(cwd, readme);
+
+  let existing = target;
+  while (!existsSync(existing) && dirname(existing) !== existing) existing = dirname(existing);
+  const real = resolve(realpathSync(existing), relative(existing, target));
+
+  if (real !== root && !real.startsWith(root + sep)) {
+    throw new Error(`readme "${readme}" resolves outside the workspace. Give a path relative to the repository root.`);
+  }
+  // git is given the real path, not the input: staging the input would stage an
+  // unchanged symlink while the write landed on its target, and the commit then
+  // fails on an empty pathspec with the rewritten file stranded in the tree
+  return { target: real, path: relative(root, real) };
+}
+
+/**
  * Split `owner/repo` out of the Actions environment.
  *
  * @returns {{owner: string, repo: string}}
@@ -60,6 +92,67 @@ function readRepository() {
     throw new Error('GITHUB_REPOSITORY is not set — the badge pull request needs a repository to open against.');
   }
   return { owner, repo };
+}
+
+/**
+ * Write the badge, commit it to the badge branch, and open the pull request.
+ *
+ * @param {object} params
+ * @returns {Promise<string>} the commit state for the job summary
+ * @throws {Error} on a detached HEAD, a missing repository or token, or a failed push
+ */
+async function publish({ cwd, path, target, original, content, result, base, token, fetchImpl }) {
+  if (base === null) {
+    throw new Error('Cannot publish from a detached HEAD.');
+  }
+  // both resolved before the write: the push lands before the pull request call, so a
+  // missing repository or token would otherwise be found with a rewritten badge in the
+  // tree and a branch already on origin
+  const { owner, repo } = readRepository();
+  if (!token.trim()) {
+    throw new Error(
+      'No token supplied — cannot open the badge pull request. Leave `token:` unset to use github.token.'
+    );
+  }
+
+  const wasTracked = Boolean(git(['ls-files', '--stage', '--', path], cwd));
+  const originalMode = statSync(target).mode & 0o777;
+  writeFileSync(target, content);
+  const message = commitMessage(result.displayed, result.attributed);
+  let branch;
+  let commitError = null;
+  try {
+    ({ branch } = commitToBadgeBranch({ cwd, path, message, base, wasTracked }));
+  } catch (error) {
+    commitError = error;
+  }
+
+  let restoreError = null;
+  if (commitError || !wasTracked) {
+    try {
+      writeFileSync(target, original);
+      chmodSync(target, originalMode);
+    } catch (error) {
+      restoreError = error;
+    }
+  }
+  if (commitError) {
+    if (restoreError) core.warning(`Could not restore ${path} after publication failed: ${restoreError.message}`);
+    throw commitError;
+  }
+  if (restoreError) throw restoreError;
+
+  const number = await ensurePullRequest({
+    owner,
+    repo,
+    base,
+    branch,
+    title: message.split('\n')[0],
+    token,
+    apiUrl: process.env.GITHUB_API_URL,
+    fetchImpl,
+  });
+  return `pull request #${number} from ${branch}`;
 }
 
 /**
@@ -83,7 +176,8 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd(),
 
   const result = score(readCommits(cwd), { since });
   const badge = badgeMarkdown(result, style);
-  const target = resolve(cwd, readme);
+
+  const { target, path } = resolveTarget(cwd, readme);
 
   let original = null;
   try {
@@ -107,27 +201,11 @@ export async function run({ cwd = process.env.GITHUB_WORKSPACE || process.cwd(),
     commitState = 'unchanged';
     core.info('Badge is byte-identical — skipping the commit.');
   } else {
-    if (base === null) {
-      throw new Error('Cannot publish from a detached HEAD.');
-    }
-    writeFileSync(target, content);
-    const { owner, repo } = readRepository();
-    const message = commitMessage(result.displayed, result.attributed);
-    const { branch } = commitToBadgeBranch({ cwd, readme, message, base });
-    const number = await ensurePullRequest({
-      owner,
-      repo,
-      base,
-      branch,
-      title: message.split('\n')[0],
-      token,
-      apiUrl: process.env.GITHUB_API_URL,
-      fetchImpl,
-    });
-    commitState = `pull request #${number} from ${branch}`;
+    commitState = await publish({ cwd, path, target, original, content, result, base, token, fetchImpl });
   }
 
-  await core.summary.addRaw(buildSummary({ result, badge, readme, replaced, commitState })).write();
+  const summary = buildSummary({ result, badge, readme, replaced, missing: original === null, commitState });
+  await core.summary.addRaw(summary).write();
   const headline = result.attributed ? `${result.percent.toFixed(1)}%` : 'no attribution';
   core.info(`AI attribution: ${headline}`);
   return result;

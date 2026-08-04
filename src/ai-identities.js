@@ -1,6 +1,6 @@
 // Bots confirmed not to be AI authorship. Checked first and short-circuits, so a
 // handle here can never be rescued by a name or domain match.
-export const NON_AI_IDENTITIES = [
+const NON_AI_IDENTITIES = [
   'all-contributors-bot',
   'codecov[bot]',
   'dependabot-preview[bot]',
@@ -24,7 +24,7 @@ export const NON_AI_IDENTITIES = [
 // Bare `Amp`, `Oz`, `Cody`, `Devin`, `Jules`, and `Continue` are deliberately
 // absent: each is a common word or human given name, and matching them would
 // score real people as tools. Their bot handles and vendor domains cover them.
-export const AI_NAMES = [
+const AI_NAMES = [
   'aider',
   'ampcode',
   'anthropic-code-agent',
@@ -73,7 +73,7 @@ export const AI_NAMES = [
 // than an unrecognised tool name on a vendor address, which is what this catches.
 // Keep the list to domains that exist to serve a tool; a general host such as
 // `gmail.com` or `users.noreply.github.com` would misread everyone.
-export const AI_EMAIL_DOMAINS = [
+const AI_EMAIL_DOMAINS = new Set([
   'aider.chat',
   'all-hands.dev',
   'ampcode.com',
@@ -90,7 +90,7 @@ export const AI_EMAIL_DOMAINS = [
   // Warp signs as `Oz <oz-agent@warp.dev>` — the handle lives in the address, so
   // the display name alone never identifies it
   'warp.dev',
-];
+]);
 
 const escape = (text) => text.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
@@ -98,14 +98,19 @@ const escape = (text) => text.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
 // hyphen, or a version number still matches on its own terms.
 const matcher = (term) => new RegExp(`(?<![a-z0-9])${escape(term)}(?![a-z0-9])`, 'i');
 
+// Tool names that are also human given names. A bare trailer still reads as the
+// tool, because most tools omit an address entirely, but once an address is
+// present the domain has to agree — `Ona Petrauskaite <ona.p@gmail.com>` is a
+// person. `Junie` carries no vendor domain here yet, so an addressed Junie reads
+// as human until one is confirmed; that is the safer of the two errors.
+const AMBIGUOUS_AI_NAMES = new Set(['Claude', 'Junie', 'Kiro', 'Ona']);
+
 const NON_AI_MATCHERS = NON_AI_IDENTITIES.map(matcher);
 const AI_NAME_MATCHERS = AI_NAMES.map(matcher);
-// A non-vendor email disambiguates the common human name; name-only Claude
-// trailers still need to match because many tools omit an address entirely.
-const ADDRESSED_AI_NAME_MATCHERS = AI_NAMES.filter((name) => name !== 'Claude').map(matcher);
+const ADDRESSED_AI_NAME_MATCHERS = AI_NAMES.filter((name) => !AMBIGUOUS_AI_NAMES.has(name)).map(matcher);
 const CLAUDE_PREFIX = /^Claude(?=[^a-z0-9]|$)/i;
-// Anthropic model families, so `Claude Opus 5` reads as a tool where a bare
-// `Claude` reads as a person. Tracks the family names, not the versions.
+// Anthropic product and model-family names, so `Claude Opus 5` reads as a tool
+// where a bare `Claude` reads as a person. Tracks the names, not the versions.
 const CLAUDE_TOOL_MATCHERS = ['Code', 'Fable', 'Haiku', 'Opus', 'Sonnet'].map(matcher);
 
 // anchored, and `<` excluded from the class: unanchored `<([^>]*)>` retries at
@@ -113,25 +118,10 @@ const CLAUDE_TOOL_MATCHERS = ['Code', 'Fable', 'Haiku', 'Opus', 'Sonnet'].map(ma
 const ADDRESS = /<([^<>]*)>[^<>]*$/;
 const EMAIL = /^[^\s@]+@[^\s@]+$/;
 
-/**
- * @param {string} text an address-slot value
- * @returns {string} the value without trailing backslashes
- */
 function trimTrailingBackslashes(text) {
   let end = text.length;
   while (end > 0 && text[end - 1] === '\\') end -= 1;
   return text.slice(0, end);
-}
-
-/**
- * Test a string for any of `terms`, on alphanumeric boundaries.
- *
- * @param {string} subject the text to search
- * @param {string[]} terms literal terms; regex metacharacters are escaped
- * @returns {boolean} true when any term appears
- */
-export function matchesAnyName(subject, terms) {
-  return terms.some((term) => matcher(term).test(subject));
 }
 
 /**
@@ -196,7 +186,7 @@ export function isKnownAiIdentity(value) {
   // a parent domain counts, so `bot.example.com` resolves through `example.com`
   const labels = domain.split('.');
   for (let i = 0; i < labels.length - 1; i += 1) {
-    if (AI_EMAIL_DOMAINS.includes(labels.slice(i).join('.'))) return true;
+    if (AI_EMAIL_DOMAINS.has(labels.slice(i).join('.'))) return true;
   }
 
   return false;
