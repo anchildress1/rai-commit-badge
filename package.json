@@ -47,7 +47,7 @@
     "commitlint-plugin-rai": "^1.0.1",
     "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.8",
-    "globals": "^17.7.0",
+    "globals": "^17.8.0",
     "lefthook": "^2.1.10",
     "prettier": "^3.9.6",
     "vitest": "^4.1.10"
