@@ -44,10 +44,10 @@
     "@eslint/js": "^10.0.1",
     "@vercel/ncc": "^0.44.1",
     "@vitest/coverage-v8": "^4.1.10",
-    "commitlint-plugin-rai": "^1.0.1",
+    "commitlint-plugin-rai": "^1.0.2",
     "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.8",
-    "globals": "^17.8.0",
+    "globals": "^17.9.0",
     "lefthook": "^2.1.10",
     "prettier": "^3.9.6",
     "vitest": "^4.1.10"
