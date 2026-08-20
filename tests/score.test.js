@@ -124,8 +124,23 @@ describe('score', () => {
   });
 
   it('counts squashed commits', () => {
-    const squashed = `feat: squashed\n\nGenerated-by: ${AI}\n\nAssisted-by: ${AI}`;
+    const squashed = `* a\n\nGenerated-by: ${AI}\n\n* b\n\nAssisted-by: ${AI}`;
     expect(score([commit('2026-01-01', squashed, src(10))]).squashedCommits).toBe(1);
+  });
+
+  it('counts a squash whose sub-commits are not all attributed', () => {
+    // counted off attributed paragraphs, this reported zero squashes while
+    // averaging one commit's footer across three commits' churn
+    const squashed = `* a\n\nGenerated-by: ${AI}\n\n* b\n\n* c`;
+    expect(score([commit('2026-01-01', squashed, src(10))]).squashedCommits).toBe(1);
+  });
+
+  it('does not count a plain commit whose trailers span two paragraphs', () => {
+    const message = `feat: one commit\n\nGenerated-by: ${AI}\n\nAssisted-by: ${AI}`;
+    const result = score([commit('2026-01-01', message, src(10))]);
+
+    expect(result.squashedCommits).toBe(0);
+    expect(result.displayed).toBe(90);
   });
 
   it('tops out at 90% because Generated-by is the heaviest footer', () => {

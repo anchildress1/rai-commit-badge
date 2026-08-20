@@ -24,8 +24,8 @@ export function score(commits, { since } = {}) {
   // commit is weighed once instead of twice
   const scored = commits
     .map((commit) => {
-      const { weight, groups } = resolveWeight(commit.message);
-      return { date: commit.date, author: commit.author, weight, groups, churn: countChurn(commit.files) };
+      const { weight, subCommits } = resolveWeight(commit.message);
+      return { date: commit.date, author: commit.author, weight, subCommits, churn: countChurn(commit.files) };
     })
     .filter((commit) => commit.weight !== null || !isKnownBotIdentity(commit.author));
   const botCommits = commits.length - scored.length;
@@ -44,7 +44,7 @@ export function score(commits, { since } = {}) {
     botCommits,
     windowCommits: window.length,
     attributedCommits: window.filter((c) => c.weight !== null).length,
-    squashedCommits: window.filter((c) => c.groups > 1).length,
+    squashedCommits: window.filter((c) => c.subCommits > 1).length,
     churn,
   };
 

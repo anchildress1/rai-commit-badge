@@ -36,6 +36,12 @@ describe('bandColor', () => {
   ])('maps %i to %s', (displayed, color) => {
     expect(bandColor(displayed)).toBe(color);
   });
+
+  it('falls back to the top band above the last threshold', () => {
+    // no weight reaches 100 today, so this only fires if WEIGHTS grows — and the
+    // badge rendering the wrong shade beats it throwing on the way to the README
+    expect(bandColor(101)).toBe('C03070');
+  });
 });
 
 describe('badgeUrl', () => {
