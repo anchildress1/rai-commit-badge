@@ -208,21 +208,25 @@ The colour tracks the score printed on the badge:
 | 67–100% | `#C03070` | AI-led    |
 
 > [!NOTE]
-> `Co-authored-by` counts as AI only when the identity matches a known AI tool. Human co-authors are ignored — including the ones GitHub injects automatically when squashing. A paragraph whose only RAI footer is a human `Co-authored-by` is discarded rather than averaged in as a zero.
+> `Co-authored-by` counts as AI only when the identity matches a known AI tool. Human co-authors are ignored — including the ones GitHub injects automatically when squashing. A sub-commit whose only RAI footer is a human `Co-authored-by` is discarded rather than averaged in as a zero.
 
 ---
 
 ## What squashing costs 🗜️
 
-Squash merging collapses a PR into one commit: several footers, one line count. With no way to split the churn, the scorer averages the footer weights instead.
+Squash merging collapses a PR into one commit: several footers, one line count. With no way to split the churn, the scorer averages the weights instead.
 
-| Merge strategy | Attribution                      |
-| -------------- | -------------------------------- |
-| Merge commit   | Per-commit, exact                |
-| Rebase         | Per-commit, exact                |
-| Squash         | Averaged across the PR's footers |
+Sub-commits are found by the `* ` bullets GitHub writes into a squash body — one unit each, whether or not it carries a footer. A sub-commit with no footer is left out of the average rather than counted as human: the squash body is the only record of it, and it says nothing about how much of the churn was that sub-commit's. It is still counted in the squash total the job summary reports.
+
+| Merge strategy | Attribution                          |
+| -------------- | ------------------------------------ |
+| Merge commit   | Per-commit, exact                    |
+| Rebase         | Per-commit, exact                    |
+| Squash         | Averaged across the PR's sub-commits |
 
 The average is size-blind — a one-line config tweak and a full feature count the same. Squashed commits are flagged in the job summary, so the share of your score that was averaged is always visible.
+
+A commit with no bullets is one unit, however its trailers are spaced: a trailer block split over two paragraphs is still one commit's attribution, and its highest footer wins. Trailers quoted inside a fenced code block are ignored, so documenting the footer format does not score as using it.
 
 ---
 

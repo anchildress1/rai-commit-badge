@@ -33,7 +33,10 @@ export function shieldsEscape(text) {
  * @returns {string} hex colour without the leading `#`
  */
 export function bandColor(displayed) {
-  return BANDS.find((band) => displayed <= band.max).color;
+  // the top band is the fallback, not a match: no weight reaches 100 today, so an
+  // out-of-range value means WEIGHTS grew — and a badge that renders the wrong
+  // shade beats one that throws on the way to the README
+  return (BANDS.find((band) => displayed <= band.max) ?? BANDS.at(-1)).color;
 }
 
 /**
