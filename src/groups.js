@@ -4,7 +4,14 @@ import { parseFooterLine, WEIGHTS } from './keys.js';
 // GitHub's squash body prefixes each collapsed commit with `* `. It is the only
 // in-message signal that one commit holds several, and it is what separates a
 // squash from a plain commit whose trailers happen to sit in two paragraphs.
+//
+// The bullet alone is not enough: a prose commit listing two changes as a tight
+// Markdown list matches it twice and reads as a squash, which invents a sub-commit
+// in the summary and turns that commit's max back into a mean. GitHub writes each
+// squash bullet as its own paragraph, so a blank line has to come first — which a
+// tight list never has.
 const SQUASH_BULLET = /^\* \S/;
+const startsSubCommit = (lines, index) => SQUASH_BULLET.test(lines[index]) && (index === 0 || !lines[index - 1].trim());
 
 // CommonMark allows up to three leading spaces and any run of three or more.
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
@@ -60,9 +67,10 @@ function subCommitWeight(lines) {
 /**
  * Split a message into one unit per squashed sub-commit.
  *
- * Fewer than two bullets is a plain commit, which is one unit whatever its paragraph
- * shape — splitting on blank lines instead meant a trailer block broken in two scored
- * a mean where one block scored a max, so a blank line moved the number.
+ * Fewer than two paragraph-leading bullets is a plain commit, which is one unit
+ * whatever its paragraph shape — splitting on blank lines instead meant a trailer
+ * block broken in two scored a mean where one block scored a max, so a blank line
+ * moved the number.
  *
  * The text above the first bullet is the squash subject and is dropped, unless it
  * carries attribution of its own: a hand-edited squash message can hold a trailer
@@ -73,8 +81,8 @@ function subCommitWeight(lines) {
  */
 function splitSubCommits(lines) {
   const starts = [];
-  for (const [index, line] of lines.entries()) {
-    if (SQUASH_BULLET.test(line)) starts.push(index);
+  for (let index = 0; index < lines.length; index += 1) {
+    if (startsSubCommit(lines, index)) starts.push(index);
   }
   if (starts.length < 2) return [lines];
 

@@ -72,6 +72,18 @@ describe('resolveWeight', () => {
     expect(resolveWeight(message)).toEqual({ weight: 0.9, subCommits: 2 });
   });
 
+  it('reads a tight Markdown list as prose, not as squash bullets', () => {
+    // a commit listing its changes matched the bullet twice and read as a squash,
+    // inventing a sub-commit in the summary
+    const message = ['feat: thing', '', 'Changes:', '', '* first', '* second', '', `Generated-by: ${AI}`];
+    expect(resolveWeight(message.join('\n'))).toEqual({ weight: 0.9, subCommits: 1 });
+  });
+
+  it('takes the max when a tight list carries attribution in two items', () => {
+    const message = ['feat: thing', '', '* one', `Generated-by: ${AI}`, '* two', `Assisted-by: ${AI}`];
+    expect(resolveWeight(message.join('\n'))).toEqual({ weight: 0.9, subCommits: 1 });
+  });
+
   it('reads a single bullet as a plain commit, not a squash', () => {
     const message = ['* feat: only one', '', `Generated-by: ${AI}`, '', `Assisted-by: ${AI}`].join('\n');
     expect(resolveWeight(message)).toEqual({ weight: 0.9, subCommits: 1 });

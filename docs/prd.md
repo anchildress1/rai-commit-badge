@@ -88,12 +88,13 @@ Scoring starts at the earliest RAI footer. Everything before is excluded.
 
 Squash concatenates every commit message, so one commit can carry several footer blocks against one churn number.
 
-**Group-aware resolution.** Split the message on blank lines; each paragraph containing a RAI footer is a group.
+**Sub-commit resolution.** Split the message on the `* ` bullets GitHub writes into a squash body — each one starting its own paragraph, so a tight Markdown list in prose is not mistaken for a squash. Fewer than two such bullets is a plain commit: one unit, whatever its paragraph shape. Fenced code blocks are stripped first, so a commit documenting the footer format does not score as using it.
 
-- Within a group → **max** weight
-- Across groups → **mean** of group weights
-- A group whose only RAI-keyed line is a non-AI `Co-authored-by` is **discarded**
-- `Authored-by` counts as a group, at 0.00
+- Within a sub-commit → **max** weight
+- Across sub-commits → **mean** of the attributed ones
+- A sub-commit whose only RAI-keyed line is a non-AI `Co-authored-by` is **discarded**
+- A sub-commit with no RAI footer is left out of the mean, but still counts toward the reported squash total
+- `Authored-by` counts as attribution, at 0.00
 
 The average is size-blind. README documents the cost, without prescribing a merge strategy — squashing is the common case, measured across 24 repos.
 
