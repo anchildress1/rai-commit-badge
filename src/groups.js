@@ -49,7 +49,7 @@ function stripFencedBlocks(lines) {
       continue;
     }
     // a closing fence is the same character, at least as long, and nothing else
-    if (match && match[1][0] === fence[0] && match[1].length >= fence.length && !line.slice(match[0].length).trim()) {
+    if (match?.[1].startsWith(fence[0]) && match[1].length >= fence.length && !line.slice(match[0].length).trim()) {
       fence = null;
       pending = [];
       continue;
