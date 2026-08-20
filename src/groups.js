@@ -21,30 +21,43 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})/;
  *
  * A commit that documents the footer format carries a trailer inside a fence, and
  * `^Key: value` matches there exactly as it does in a real trailer block — so a
- * human-written docs commit scores as AI work. Unterminated fences swallow the
- * rest of the message, which is what a reader sees rendered too.
+ * human-written docs commit scores as AI work.
+ *
+ * An unterminated fence is put back rather than swallowing the rest of the message.
+ * Trailers live in the last paragraph, so treating a stray ``` as an open block
+ * drops the whole attribution and scores real AI work as human — the failure this
+ * scorer exists to avoid. Counting a trailer quoted inside a fence someone forgot
+ * to close is the rarer and smaller error.
  *
  * @param {string[]} lines the message, already split on line endings
- * @returns {string[]} the lines outside any fence
+ * @returns {string[]} the lines outside any closed fence
  */
 function stripFencedBlocks(lines) {
   const kept = [];
   let fence = null;
+  let pending = [];
 
   for (const line of lines) {
     const match = FENCE.exec(line);
     if (fence === null) {
-      if (match) fence = match[1];
-      else kept.push(line);
+      if (match) {
+        fence = match[1];
+        pending = [line];
+      } else {
+        kept.push(line);
+      }
       continue;
     }
     // a closing fence is the same character, at least as long, and nothing else
     if (match && match[1][0] === fence[0] && match[1].length >= fence.length && !line.slice(match[0].length).trim()) {
       fence = null;
+      pending = [];
+      continue;
     }
+    pending.push(line);
   }
 
-  return kept;
+  return fence === null ? kept : [...kept, ...pending];
 }
 
 /**

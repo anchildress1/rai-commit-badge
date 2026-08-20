@@ -57,6 +57,18 @@ describe('resolveWeight', () => {
     expect(resolveWeight(message.join('\n'))).toEqual({ weight: 0.9, subCommits: 1 });
   });
 
+  it('keeps a trailer below an unterminated fence', () => {
+    // swallowing to end-of-message dropped the whole trailer block and scored real
+    // AI work as human — the failure this scorer exists to avoid
+    const message = ['fix: paste a snippet', '', FENCE, 'foo.bar()', '', `Generated-by: ${AI}`];
+    expect(resolveWeight(message.join('\n'))).toEqual({ weight: 0.9, subCommits: 1 });
+  });
+
+  it('still finds sub-commits below an unterminated fence', () => {
+    const message = ['* a', '', FENCE, 'snippet', '', '* b', '', `Generated-by: ${AI}`];
+    expect(resolveWeight(message.join('\n'))).toEqual({ weight: 0.9, subCommits: 2 });
+  });
+
   it('closes a fence only on its own marker character', () => {
     const message = ['docs: thing', '', '~~~', `Generated-by: ${AI}`, FENCE, `Generated-by: ${AI}`, '~~~'];
     expect(resolveWeight(message.join('\n'))).toEqual({ weight: null, subCommits: 1 });
