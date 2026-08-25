@@ -43,7 +43,7 @@
     "@commitlint/config-conventional": "^21.2.0",
     "@eslint/js": "^10.0.1",
     "@vercel/ncc": "^0.45.0",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.11",
     "commitlint-plugin-rai": "^1.0.2",
     "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.1.8",
