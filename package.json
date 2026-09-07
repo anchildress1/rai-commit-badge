@@ -36,19 +36,19 @@
   "homepage": "https://github.com/anchildress1/rai-commit-badge#readme",
   "dependencies": {
     "@actions/core": "^3.0.1",
-    "ignore": "^7.0.6"
+    "ignore": "^7.0.8"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.0",
     "@eslint/js": "^10.0.1",
     "@vercel/ncc": "^0.45.0",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.11",
     "commitlint-plugin-rai": "^1.0.2",
-    "eslint": "^10.8.1",
+    "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.11.0",
-    "lefthook": "^2.1.10",
+    "lefthook": "^2.1.12",
     "prettier": "^3.9.6",
     "vitest": "^4.1.10"
   },
