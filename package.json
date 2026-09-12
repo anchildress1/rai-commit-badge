@@ -50,7 +50,7 @@
     "globals": "^17.11.0",
     "lefthook": "^2.1.10",
     "prettier": "^3.9.6",
-    "vitest": "^4.1.10"
+    "vitest": "^5.0.0"
   },
   "volta": {
     "node": "24.13.0"
