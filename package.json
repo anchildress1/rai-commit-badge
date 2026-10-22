@@ -36,7 +36,7 @@
   "homepage": "https://github.com/anchildress1/rai-commit-badge#readme",
   "dependencies": {
     "@actions/core": "^3.0.1",
-    "ignore": "^7.0.12"
+    "ignore": "^7.0.13"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.4",
@@ -53,6 +53,6 @@
     "vitest": "^5.0.5"
   },
   "volta": {
-    "node": "24.22.0"
+    "node": "24.22.1"
   }
 }
