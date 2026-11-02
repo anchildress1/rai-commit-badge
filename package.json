@@ -36,7 +36,7 @@
   "homepage": "https://github.com/anchildress1/rai-commit-badge#readme",
   "dependencies": {
     "@actions/core": "^3.0.1",
-    "ignore": "^7.0.13"
+    "ignore": "^7.0.14"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.4",
